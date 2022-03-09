@@ -1,0 +1,46 @@
+/* Overall card styline */
+.card {
+	font-family:  ume-pms3 ;
+	font-size: 22px;
+	text-align: center;
+	color: black;
+	background-color: white;
+}
+.card1 { background-color: #fcf7ef; }
+.card2 { background-color: #fcf7ef; }
+.card3 { background-color: #fcf7ef; }
+
+/*text css */
+.japanese{
+	font-size: 2em;
+	
+}
+
+.english {
+	font-size:1.4em;
+	margin: 5% 2%;
+}
+
+.smallEnglish {
+	font-size:0.6em;
+	margin: 5% 2%;
+}
+
+
+/*checkbox hack, allows click effects to show/hide the furigana https://stackoverflow.com/questions/13630229/can-i-have-an-onclick-effect-in-css */
+
+
+/* hide the checkbox */
+#demo {
+	display:none;
+}
+
+/* when checkbox is active, show for furigana */
+#demo:checked + label ruby rt {
+	visibility: visible; 
+}
+
+/* furigana hidden */
+.furihide ruby rt { 
+	visibility: hidden; 
+}
