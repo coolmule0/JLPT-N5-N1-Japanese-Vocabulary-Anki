@@ -280,6 +280,9 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
         os.makedirs(audioSaveDir, exist_ok=True)
 
         excludeFileLoc = audioSaveDir + "notAvailable.txt"
+        if not os.path.exists(excludeFileLoc):
+            with open(excludeFileLoc, 'w'):
+                pass
         # make a list of all audio files that exists
         audios = os.listdir(audioSaveDir)
         # list of audio files that do not exist to be downloaded - so dont attempt to download these
