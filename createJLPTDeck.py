@@ -268,7 +268,6 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
         "reading",
         "grammar",
         "additional",
-        "politeness",
         "jlpt",
     ]
     if cardType == "extended":
@@ -318,8 +317,6 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
     outData["reading"] = np.vectorize(usuallyKanaReading)(
         outData["reading"], pddata["japanese"], pddata["senses"]
     )
-    # formality of the word
-    outData["politeness"] = np.vectorize(extractFormality)(pddata["senses"])
     # jlpt level - joined sorted list
     outData["jlpt"] = pddata["jlpt"].apply(lambda x: " ".join(sorted(x)))
     # usually kana tag
@@ -328,6 +325,8 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
         if ("Usually written using kana alone" in x[0]["tags"])
         else ""
     )
+    # formality of the word, append to jlpt tags info
+    outData["jlpt"] += np.vectorize(extractFormality)(pddata["senses"])
 
     for i in range(0, len(pddata.index)):
         if "reading" in pddata["japanese"][i][0]:

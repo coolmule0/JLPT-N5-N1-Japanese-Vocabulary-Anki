@@ -63,6 +63,5 @@ Current anki deck should contain the following elements:
 - "Reading" - similar to "expression", but with kanji expanded with ruby-ready furigana addition
 - "Grammar" - the grammatical type
 - "Additional definitions" - other english meanings
-- "Formality" - If the word has use in humble, formal (e.t.c.) language
 - ("Sound" - audio track of the deck. Optional, only used for `extended` deck type)
-- "jlpt" - the anki-tags, ordered by JLPT. These should be imported as the `tag` field.
+- "jlpt" - the anki-tags, ordered by JLPT. These should be imported as the `tag` field. Also includes formality - if the word has use in humble, formal (e.t.c.) language

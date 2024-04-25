@@ -17,7 +17,6 @@ class AnkiDeck:
             {"name": "Reading"},
             {"name": "Grammar"},
             {"name": "Additional definitions"},
-            {"name": "Formality"},
         ],
         templates=[
             {
@@ -112,7 +111,6 @@ class AnkiDeck:
                 note["reading"],
                 note["grammar"],
                 note["additional"],
-                note["politeness"],
             ],
             tags=note["jlpt"].split(),
         )
