@@ -185,16 +185,17 @@ def extractFormality(senses: List[str]):
                     senses: senses section of the jlpt word info
     """
     tags = senses[0]["tags"]
-    accept = [
-        "Humble (kenjougo) language",
-        "Honorific or respectful (sonkeigo) language",
-        "Polite (teineigo) language",
-    ]
+    # a list of pairs. The first is the entry to accept. The latter is what will be provided into the final formality string
+    accept = {
+        "Humble (kenjougo) language": "humble",
+        "Honorific or respectful (sonkeigo) language": "respectful",
+        "Polite (teineigo) language": "polite",
+    }
     formalities = []
     for t in tags:
         if t in accept:
-            formalities.append(t)
-    return ", ".join(formalities)
+            formalities.append(accept[t])
+    return " ".join(formalities)
 
 
 def getAllOfGroup(group: str, fileName: str = ""):
@@ -323,13 +324,24 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
     # jlpt level - joined sorted list
     outData["jlpt"] = pddata["jlpt"].apply(lambda x: " ".join(sorted(x)))
     # usually kana tag
-    outData["jlpt"] += pddata["senses"].apply(
+    outData["usually_kana"] = pddata["senses"].apply(
         lambda x: "usually_kana"
         if ("Usually written using kana alone" in x[0]["tags"])
         else ""
     )
     # formality of the word, append to jlpt tags info
-    outData["jlpt"] += np.vectorize(extractFormality)(pddata["senses"])
+    outData["formality"] = np.vectorize(extractFormality)(pddata["senses"])
+    
+    # join specific columns together - these fill be tags
+    columns_as_tags = ['usually_kana', 'jlpt', 'formality']
+    # outData["tags"] = outData.apply(lambda row: f"{row[]}")
+    outData["tags"] = ""
+    for c in columns_as_tags:
+        outData["tags"] = outData["tags"] + ' ' + outData[c]
+        outData = outData.drop(c, axis=1)
+    # then rename the "tags" to "jlpt" 
+    outData["jlpt"] = outData["tags"]
+    outData = outData.drop("tags", axis=1)
 
     for i in range(0, len(pddata.index)):
         if "reading" in pddata["japanese"][i][0]:
@@ -414,8 +426,11 @@ def download_and_generate(N: str, normal: str) -> pd.DataFrame:
 
     # Convert jisho json to anki-ready csv
     logging.info(f"---------- Converting {N}")
-    pddata = pd.read_json(json_file, orient="split", encoding="utf-8")
-    df = convertJSONtoTable(pddata, normal)
+    with open(json_file, 'r') as file:
+        # Load the JSON data into a dictionary
+        data = json.load(file)['data']
+    pddata = pd.DataFrame(data)
+    df = convertJSONtoTable(pddata, normal)  
 
     # Write df to file
     csv_file = os.path.join(folder_name, N + normal + ".csv")
