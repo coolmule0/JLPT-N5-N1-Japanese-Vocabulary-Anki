@@ -78,7 +78,7 @@ class AnkiDeck:
             self.model.templates[0][
                 "afmt"
             ] += "\n\n{{Sound}}"  # recognition sound on back
-            self.model.templates[1]["qfmt"] += "\n\n{{Sound}}"  # recall sound on front
+            self.model.templates[1]["afmt"] += "\n\n{{Sound}}"  # recall sound on back
         self.gen_decks()
 
     def get_deck_from_tag(self, tags):
