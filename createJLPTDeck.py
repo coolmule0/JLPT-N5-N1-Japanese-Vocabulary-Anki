@@ -368,7 +368,7 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
                 else:
                     bSuccess = False
                 if bSuccess:
-                    outData["sound"][i] = (
+                    outData.loc[i, "sound"] = (
                         "[sound:" + audiostr + "]"
                     )  # naming convention for sound in card
         else:
@@ -388,7 +388,7 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
             l.append(", ".join(j["english_definitions"]))
         # separate different groups by a different separator
         l = "; ".join(l)
-        outData["additional"][i] = l
+        outData.loc[i, "additional"] = l
     endI = time.time()
     logging.info(f"Opt version time {str(endI - startI)}")
 
