@@ -8,6 +8,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
+from tqdm import tqdm 
 
 # folder to save generated results in
 folder_name = "generated"
@@ -343,7 +344,7 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
     outData["jlpt"] = outData["tags"]
     outData = outData.drop("tags", axis=1)
 
-    for i in range(0, len(pddata.index)):
+    for i in tqdm(range(0, len(pddata.index))):
         if "reading" in pddata["japanese"][i][0]:
             if cardType == "extended":
                 # choose to download audio if it is usually read as kanji or kana
@@ -401,6 +402,25 @@ def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
     )
     return outData
 
+def drop_exeptions(df: pd.DataFrame) -> pd.DataFrame:
+    """Notable exeptions where the program is known to fail.
+
+    Args:
+                    dataframe with "slug" column
+    Returns:
+                    dataframe with corrected entries
+    """
+    exeptions = [
+        "ＰＥＴ"
+    ]
+
+    # drop every exeption in the above list
+    for e in exeptions:
+        df = df[~df["slug"].str.contains(e)]
+    
+    df = df.reset_index()
+    return df
+
 
 def download_and_generate(N: str, normal: str) -> pd.DataFrame:
     """Download vocabulary from Jisho for category "N", and generate the "normal" card type.
@@ -431,6 +451,7 @@ def download_and_generate(N: str, normal: str) -> pd.DataFrame:
         data = json.load(file)['data']
     pddata = pd.DataFrame(data)
     df = convertJSONtoTable(pddata, normal)  
+    df = drop_exeptions(df)
 
     # Write df to file
     csv_file = os.path.join(folder_name, N + normal + ".csv")
