@@ -10,6 +10,8 @@ import numpy as np
 from bs4 import BeautifulSoup
 from tqdm import tqdm 
 
+## A script to download JLPT N5-N1 and common vocabulary from Jisho and output anki-ready csv decks
+
 # folder to save generated results in
 folder_name = "generated"
 

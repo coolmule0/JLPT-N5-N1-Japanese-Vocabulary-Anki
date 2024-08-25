@@ -113,6 +113,7 @@ class AnkiDeck:
                 note["additional"],
             ],
             tags=note["jlpt"].split(),
+            due=str(note["index"]),
         )
         if self.extended:
             my_note.fields.append(note["sound"] if (type(note["sound"]) == str) else "")
