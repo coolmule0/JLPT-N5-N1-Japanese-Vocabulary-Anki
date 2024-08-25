@@ -125,8 +125,10 @@ class AnkiDeck:
         """
         Creates an apkg file of the combined info
         """
-        for d in self.decks:
-            genanki.Package(d).write_to_file(f"generated/{d.name}.apkg")
+        # package the decks together
+        p_name = "Core Japanese Vocabulary Extended" if self.extended else "Core Japanese Vocabulary"
+        
+        genanki.Package(self.decks).write_to_file(f"generated/{p_name}.apkg")
 
 
 if __name__ == "__main__":
