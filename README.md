@@ -8,6 +8,8 @@ The "extended" deck contains everything of the normal deck as well as audio pron
 
 Following this readme will provide exactly the deck available on Anki (linked above). Unless you wish to make modifications to the deck and code, it is far easier to download the deck using the links above.
 
+![An anki card](example_images/example_anki.png)
+
 ## How to Generate Files
 
 Ensure Python Version 3.X is installed. I would suggest also having pipenv installed (`pip install pipenv`). Then run `pipenv shell` in this folder, then `python createJLPTDeck.py`. Resulting files will be created in the "generated" folder.
