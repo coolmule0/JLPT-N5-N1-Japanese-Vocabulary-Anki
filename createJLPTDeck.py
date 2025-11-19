@@ -1,499 +1,695 @@
-import json, urllib.request, urllib.parse, re, os.path
+import json, re, os.path
 import time
 import argparse
 import logging
-from typing import TextIO
-from typing import List
+from typing import TextIO, List, Any
 
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
 from tqdm import tqdm 
+import requests
 
-## A script to download JLPT N5-N1 and common vocabulary from Jisho and output anki-ready csv decks
+## A script to download JLPT N5-N1 and common vocabulary from Jisho and output anki-ready csv decks.
+## 
+## Stores jisho calls to a .cache directory to avoid repeadetly querying the site
 
-# folder to save generated results in
-folder_name = "generated"
+# folder to save generated results in.
+# This folder will contain a .csv and a .json
+folder_name = "output"
+# cache_folder_name = ".cache"
 
 # For extra print statements
 logging.basicConfig(
-    level=logging.ERROR,
-    format="%(asctime)s %(levelname)s %(message)s",
+	level=logging.INFO,
+	format="%(asctime)s %(levelname)s %(message)s",
 )
 
+# def query_jisho_term(e: str) -> dict:
+# 	"""Get the results from Jisho.org for the search term 'e', in JSON form
+ 
+# 	Args:
+# 					e (string): Jisho search term
 
-def getJapJs(e: str):
-    """Get the results of Jisho.org for the word or search 'e', in JSON form
+# 	Returns:
+# 					dict: nested dictionary containing the search results
+# 	"""
 
-    Args:
-                    e (string): Jisho search term
+# 	# add some safe inputs
+# 	url = "https://jisho.org/api/v1/search/words?keyword=" + urllib.parse.quote(
+# 		e, safe="/&="
+# 	)
 
-    Returns:
-                    [type]: [description]
-    """
+# 	logging.debug(f"Searching {url}")
 
-    # add some safe inputs
-    url = "https://jisho.org/api/v1/search/words?keyword=" + urllib.parse.quote(
-        e, safe="/&="
-    )
+# 	response = urllib.request.urlopen(url)
 
-    logging.debug(f"Searching {url}")
+# 	result = json.loads(response.read())
 
-    response = urllib.request.urlopen(url)
+# 	# assert(result["meta"]["status"] == )
 
-    # returns multiple
-    result = json.loads(response.read())
+# 	numResults = len(result["data"])
+# 	logging.debug(f"Found {str(numResults)} results")
 
-    numResults = len(result["data"])
-    logging.debug(f"Found {str(numResults)} results")
-
-    return result
+# 	return result
 
 
 def getAudio(wordKanji: str, wordKana: str, saveDir: str, excludeFile: TextIO) -> bool:
-    """Download audio from Jisho.org for word
+	"""Download audio from Jisho.org for word
 
-    Args:
-                    wordKanji (string): Kanji for the word
-                    wordKana (string): kana for the word
-                    saveDir (string): Where to save the audo
-                    excludeFile (fie): File for audio to not search for. Contains a single column of all words.mp3 that should not be downloaded. This function does not check this, only appends to it if it fails
+	Args:
+					wordKanji (string): Kanji for the word
+					wordKana (string): kana for the word
+					saveDir (string): Where to save the audo
+					excludeFile (fie): File for audio to not search for. Contains a single column of all words.mp3 that should not be downloaded. This function does not check this, only appends to it if it fails
 
-    Returns:
-                    bool: whether word mp3 is saved in directory (not necessarily donwloading if it already exists)
+	Returns:
+					bool: whether word mp3 is saved in directory (not necessarily donwloading if it already exists)
+	"""
+
+	logging.debug(f"Attempting to download {wordKanji}")
+
+	baseUrl = "https://jisho.org/search/"
+	# search using both kanji and kana to ensure first result is desired
+	search = (
+		baseUrl + urllib.parse.quote(wordKanji) + "%20" + urllib.parse.quote(wordKana)
+	)
+
+	# get url page into a useable format
+	try:
+		page = urllib.request.urlopen(search).read()
+	except:
+		return False
+	soup = BeautifulSoup(page, features="lxml")
+	audiotag = soup.find("audio")
+	# ensure it is of the first result
+	if (audiotag) and (audiotag.find_parent("div", {"class": "exact_block"})):
+		audioUrl = audiotag.find("source").get(
+			"src"
+		)  # assume audio would be first, if present
+		urllib.request.urlretrieve(
+			"http:" + audioUrl, saveDir + wordKanji + ".mp3"
+		)  # source in webpage lacks "http:" prefix
+		return True
+	else:
+		# Note word as failed- so can speed up next time by not checking
+		with open(excludeFile, "a", encoding="utf-8") as f:
+			f.write(wordKanji + ".mp3\n")
+		return False
+
+
+# # vectorize the function
+# vgetAudio = np.vectorize(getAudio)
+
+
+# def makeFurigana(kanjiIn: str, kanaIn: str) -> str:
+# 	"""Generate a furigana word from associated kanji and kana. Is able to handle words with kana between the kanji.
+
+# 	E.g. (掃除する, そうじする) becomes 掃除[そうじ]する
+
+# 	Args:
+# 					kanjiIn (string): Kanji of the word (can include kana as well).
+# 					kanaIn (string): Kana of the word
+
+# 	Returns:
+# 					string: Kanji word with furigana
+# 	"""
+
+# 	# No value provided
+# 	if not kanaIn:
+# 		return
+# 	# what to put the furigana inside
+# 	f_l = "["
+# 	f_r = "]"
+
+# 	# keep track of extra character spaces that are 'eaten' by kanjis
+# 	tt = 0
+# 	# furigana-kanji lists
+# 	outWord = ""
+# 	lastMatchLoc = 0
+# 	fk = []
+# 	# for each kanji in the word
+# 	if kanjiIn:
+# 		for m in re.finditer("[一-龯々]+", kanjiIn):
+# 			kanjiWordPos = m.span()[0]
+# 			kanaWordPos = kanjiWordPos + tt
+
+# 			# find the next furigana(s) in the kanji word
+# 			searchLoc = m.span()[1]
+# 			m2 = re.search(r"[ぁ-ん]+", kanjiIn[searchLoc:])
+# 			if m2:
+# 				# find this kana match in the kana word
+# 				searchLoc = searchLoc + tt
+# 				m3 = re.search(m2.group(), kanaIn[searchLoc:])
+# 				# if no matching found, assume something wrong with the input
+# 				if not m3:
+# 					return ""
+
+# 				# get the kana between these
+# 				s = kanaIn[kanaWordPos : searchLoc + m3.span()[0]]
+
+# 				# update number of kanas 'eaten' by kanjis
+# 				tt = tt + m3.span()[0]
+
+# 			else:
+# 				s = kanaIn[kanaWordPos:]
+
+# 			# the furigana'd kanji string, separated by space
+# 			out = " " + m.group() + f_l + s + f_r
+# 			outWord = outWord + kanjiIn[lastMatchLoc:kanjiWordPos] + out
+# 			fk.append(out)
+
+# 			# update position of last kanji searched
+# 			lastMatchLoc = m.span()[1]
+
+# 	# update the out word for tailing kanas
+# 	outWord = outWord + kanjiIn[lastMatchLoc:]
+# 	return outWord.strip()
+
+
+# def usuallyKanaReading(furiganaReading, japanese, sense):
+# 	"""
+# 	Takes the table and a column of bools (true when word is usually kana only), and returns the expected reading expression
+
+# 	Args:
+# 					furiganaReading: reading of the word, with furigana (e.g. having called makeFurigana first)
+# 					reading: just the hiragana/katakana of the word
+# 					bUsuallyKana: whether the word is usually kana
+# 	"""
+# 	try:
+# 		j = japanese[0]["reading"]
+# 	except:
+# 		j = ""
+# 	s = sense[0]["tags"]
+# 	return j if ("Usually written using kana alone" in s) else furiganaReading
+
+
+# def extractFormality(senses: List[str]):
+# 	"""
+# 	Extracts the formality tags from a string array
+
+# 	Args:
+# 					senses: senses section of the jlpt word info
+# 	"""
+# 	tags = senses[0]["tags"]
+# 	# a list of pairs. The first is the entry to accept. The latter is what will be provided into the final formality string
+# 	accept = {
+# 		"Humble (kenjougo) language": "humble",
+# 		"Honorific or respectful (sonkeigo) language": "respectful",
+# 		"Polite (teineigo) language": "polite",
+# 	}
+# 	formalities = []
+# 	for t in tags:
+# 		if t in accept:
+# 			formalities.append(accept[t])
+# 	return " ".join(formalities)
+
+
+def get_all_of_level(level: str, fileName: str = ""):
+	"""SLOW OPERATION. Download all the words for a `group` from Jisho and save into a json file.
+
+	Args:
+					level (string): Jisho Category to search for (e.g. N3) or tag (e.g. #common (note # for tag searches))
+					fileName (string, optional): filename output to save json data. Defaults to "$(level).json"
+	"""
+
+	if fileName == "":
+		fileName = level + ".json"
+
+	# number of results returned from JSON query for a page
+	num_results = 1
+	# keep track of pages of results
+	page = 1
+
+	# Big JSON storage file
+	all_jisho_results = []
+
+	base_url = "https://jisho.org/api/v1/search/words"
+
+	logging.info(f"Querying Jisho for {level} words")
+
+	with requests.Session() as session:
+
+		# Jisho has a limit of 20 results per page, so run for multiple pages until no more results.
+		# We don't know how many pages there will be in advance before querying the site
+		while True:
+			params = {
+				"keyword": f"#{level}",
+				"page": page,
+			}
+			response = session.get(base_url, params=params)
+
+			if response.status_code != 200:
+				logging.error(f"Failed to fetch page {page}, status code: {response.status_code}")
+				break
+
+			text_response = response.json()
+			data = text_response["data"]
+
+			#json_results = query_jisho_term(f"#{level}&page={str(page_counter)}")
+			num_results = len(data)
+
+			# jisho.org currently has a limit of 1000 pages
+			if num_results == 0 or page > 999:
+				break
+
+			all_jisho_results += data
+			page += 1
+
+			logging.info(f"Page {page}\r")
+
+			#debug
+			#page = 1000
+
+	logging.info(f"Found {str(page - 1)} pages with {len(all_jisho_results)} words")
+
+	# Write to a file
+	with open(fileName, "w", encoding="utf-8") as jf:
+		json.dump(all_jisho_results, jf, indent=3, ensure_ascii=False)
+
+def extract_word_safe(val):
+    if isinstance(val, list) and len(val) > 0:
+        first = val[0]
+        if isinstance(first, dict):
+            return first.get('word', None)  # Use get to avoid KeyError
+    return None
+
+def filter_english_definitions(senses):
     """
-
-    logging.debug(f"Attempting to download {wordKanji}")
-
-    baseUrl = "https://jisho.org/search/"
-    # search using both kanji and kana to ensure first result is desired
-    search = (
-        baseUrl + urllib.parse.quote(wordKanji) + "%20" + urllib.parse.quote(wordKana)
-    )
-
-    # get url page into a useable format
-    try:
-        page = urllib.request.urlopen(search).read()
-    except:
-        return False
-    soup = BeautifulSoup(page, features="lxml")
-    audiotag = soup.find("audio")
-    # ensure it is of the first result
-    if (audiotag) and (audiotag.find_parent("div", {"class": "exact_block"})):
-        audioUrl = audiotag.find("source").get(
-            "src"
-        )  # assume audio would be first, if present
-        urllib.request.urlretrieve(
-            "http:" + audioUrl, saveDir + wordKanji + ".mp3"
-        )  # source in webpage lacks "http:" prefix
-        return True
-    else:
-        # Note word as failed- so can speed up next time by not checking
-        with open(excludeFile, "a", encoding="utf-8") as f:
-            f.write(wordKanji + ".mp3\n")
-        return False
-
-
-# vectorize the function
-vgetAudio = np.vectorize(getAudio)
-
-
-def makeFurigana(kanjiIn: str, kanaIn: str) -> str:
-    """Generate a furigana word from associated kanji and kana. Is able to handle words with kana between the kanji.
-
-    E.g. (掃除する, そうじする) becomes 掃除[そうじ]する
-
-    Args:
-                    kanjiIn (string): Kanji of the word (can include kana as well).
-                    kanaIn (string): Kana of the word
-
-    Returns:
-                    string: Kanji word with furigana
+    Coalates the all but the first english_definitions together. Ignores the definition if tagged as 'place' or 'wikipedia definition', as they seem to have worse definitions.
+    Remove duplicate entries.
+    Limits total entries to not have too much info.
     """
+    letter_limit = 100 # How many characters to have
+    first_defs = set(defn.lower() for defn in senses[0].get('english_definitions', []))
+    
+    # Use the rest of the english definitions, without repeating those
+    filtered_defs = []
+    seen = set()  # To track duplicates (case-insensitive).
 
-    # No value provided
-    if not kanaIn:
-        return
-    # what to put the furigana inside
-    f_l = "["
-    f_r = "]"
-
-    # keep track of extra character spaces that are 'eaten' by kanjis
-    tt = 0
-    # furigana-kanji lists
-    outWord = ""
-    lastMatchLoc = 0
-    fk = []
-    # for each kanji in the word
-    if kanjiIn:
-        for m in re.finditer("[一-龯々]+", kanjiIn):
-            kanjiWordPos = m.span()[0]
-            kanaWordPos = kanjiWordPos + tt
-
-            # find the next furigana(s) in the kanji word
-            searchLoc = m.span()[1]
-            m2 = re.search(r"[ぁ-ん]+", kanjiIn[searchLoc:])
-            if m2:
-                # find this kana match in the kana word
-                searchLoc = searchLoc + tt
-                m3 = re.search(m2.group(), kanaIn[searchLoc:])
-                # if no matching found, assume something wrong with the input
-                if not m3:
-                    return ""
-
-                # get the kana between these
-                s = kanaIn[kanaWordPos : searchLoc + m3.span()[0]]
-
-                # update number of kanas 'eaten' by kanjis
-                tt = tt + m3.span()[0]
-
-            else:
-                s = kanaIn[kanaWordPos:]
-
-            # the furigana'd kanji string, separated by space
-            out = " " + m.group() + f_l + s + f_r
-            outWord = outWord + kanjiIn[lastMatchLoc:kanjiWordPos] + out
-            fk.append(out)
-
-            # update position of last kanji searched
-            lastMatchLoc = m.span()[1]
-
-    # update the out word for tailing kanas
-    outWord = outWord + kanjiIn[lastMatchLoc:]
-    return outWord.strip()
-
-
-def usuallyKanaReading(furiganaReading, japanese, sense):
-    """
-    Takes the table and a column of bools (true when word is usually kana only), and returns the expected reading expression
-
-    Args:
-                    furiganaReading: reading of the word, with furigana (e.g. having called makeFurigana first)
-                    reading: just the hiragana/katakana of the word
-                    bUsuallyKana: whether the word is usually kana
-    """
-    try:
-        j = japanese[0]["reading"]
-    except:
-        j = ""
-    s = sense[0]["tags"]
-    return j if ("Usually written using kana alone" in s) else furiganaReading
-
-
-def extractFormality(senses: List[str]):
-    """
-    Extracts the formality tags from a string array
-
-    Args:
-                    senses: senses section of the jlpt word info
-    """
-    tags = senses[0]["tags"]
-    # a list of pairs. The first is the entry to accept. The latter is what will be provided into the final formality string
-    accept = {
-        "Humble (kenjougo) language": "humble",
-        "Honorific or respectful (sonkeigo) language": "respectful",
-        "Polite (teineigo) language": "polite",
-    }
-    formalities = []
-    for t in tags:
-        if t in accept:
-            formalities.append(accept[t])
-    return " ".join(formalities)
-
-
-def getAllOfGroup(group: str, fileName: str = ""):
-    """SLOW OPERATION. Download all the words for a `group` from Jisho and save into a json file.
-
-    Args:
-                    group (string): Jisho Category to search for (e.g. N3) or tag (e.g. #common (note # for tag searches))
-                    fileName (string, optional): filename output to save json data. Defaults to "$(group).json"
-    """
-
-    if fileName == "":
-        fileName = group + ".json"
-
-    # number of results returned from JSON query for a page
-    numResults = 1
-    # keep track of pages of results
-    pageCounter = 1
-
-    # Big JSON storage file
-    allJSResults = {}
-
-    # Jisho has a limit of 20 results per page/return, so run for multiple pages until no more results
-    while True:
-        JSONResults = getJapJs(f"#{group}&page={str(pageCounter)}")
-        numResults = len(JSONResults["data"])
-
-        # jisho.org currently has a limit of 1000 pages
-        if numResults == 0 or pageCounter > 999:
+    for sense in senses[1:]:
+        # Check if parts_of_speech contains neither "Place" nor "Wikipedia definition"
+        if any(pos in ["Place", "Wikipedia definition"] for pos in sense.get("parts_of_speech", [])):
+            continue
+        
+        for defn in sense.get("english_definitions", []):
+            defn_lower = defn.lower()
+            # Add if not in first sense and not already seen
+            if defn_lower not in first_defs and defn_lower not in seen:
+                filtered_defs.append(defn)
+                seen.add(defn_lower)
+    # Limit the total letters.
+    letter_count = 0
+    for i in range(len(filtered_defs)):
+        single_def = filtered_defs[i]
+        letter_count += len(single_def)
+        if letter_count > letter_limit:
+            filtered_defs = filtered_defs[:i]
             break
+            
+    return ", ".join(filtered_defs)
 
-        # extract the inner, useful JSON word data
-        if allJSResults == {}:
-            allJSResults = {"data": JSONResults["data"]}
-        else:
-            allJSResults = {"data": allJSResults["data"] + JSONResults["data"]}
+def extractFormality(senses):
+	"""
+	Extracts the formality tags from a string array
 
-        # increment page counter
-        pageCounter = pageCounter + 1
+	Args:
+					senses: senses section of the jlpt word info
+	"""
+	tags = senses[0]["tags"]
+	# a list of pairs. The first is the entry to accept. The latter is what will be provided into the final formality string
+	accept = {
+		"Humble (kenjougo) language": "humble/kenjougo",
+		"Honorific or respectful (sonkeigo) language": "respectful/sonkeigo",
+		"Polite (teineigo) language": "polite/teineigo",
+	}
+	formalities = []
+	for t in tags:
+		if t in accept:
+			formalities.append(accept[t])
+	return " ".join(formalities)
 
-    logging.info(f"Found {str(pageCounter - 1)} pages ")
+def make_furigana(kanji: str, kana: str) -> str:
+	"""Generate a furigana word from associated kanji and kana. Is able to handle words with kana between the kanji.
 
-    # Write to a file
-    with open(fileName, "w", encoding="utf-8") as jf:
-        json.dump(allJSResults, jf, indent=3, ensure_ascii=False)
+	E.g. (掃除する, そうじする) becomes 掃除[そうじ]する
 
+	Args:
+					kanji (string): Kanji of the word (can include kana as well).
+					kana (string): Kana of the word
+	Returns:
+					string: Kanji word with furigana
+	"""
+	if not kana:
+		assert(False, "No kana reading provided.")
+		return
+	if not kanji:
+		return kana
+	# what to put the furigana inside
+	f_l = "["
+	f_r = "]"
 
-def convertJSONtoTable(pddata: pd.DataFrame, cardType: str) -> pd.DataFrame:
-    """Convert downloaded Jisho json file of vocabulary into a csv file suitable for import into Anki
-    Returns the pandas dataframe
+	# keep track of extra character spaces that are 'eaten' by kanjis
+	tt = 0
+	# furigana-kanji lists
+	outWord = ""
+	lastMatchLoc = 0
+	fk = []
+	# for each kanji in the word
+	if kanji:
+		for m in re.finditer("[一-龯々]+", kanji):
+			kanjiWordPos = m.span()[0]
+			kanaWordPos = kanjiWordPos + tt
 
-    Args:
-                    pddata : Dataframe (from downloaded json info)
-                    cardType (string [normal/extended]): [normal/extended] are the only valid arguments.
-                                                                                    normal - contains standard vocabulary card columns.
-                                                                                    extended - as normal, with sound
-    Returns:
-                    DataFrame: card-prepared table
-    """
+			# find the next furigana(s) in the kanji word
+			searchLoc = m.span()[1]
+			m2 = re.search(r"[ぁ-んァヿ]+", kanji[searchLoc:])
+			if m2:
+				# find this kana match in the kana word
+				searchLoc = searchLoc + tt
+				m3 = re.search(m2.group(), kana[searchLoc:])
+				# if no matching found, assume something wrong with the input
+				if not m3:
+					return ""
 
-    if not (cardType == "normal") and not (cardType == "extended"):
-        print("Unknown card type as input")
-        return
+				# get the kana between these
+				s = kana[kanaWordPos : searchLoc + m3.span()[0]]
 
-    # tidy up usless columns
-    pddata = pddata.drop(columns=["is_common", "tags", "attribution"])
+				# update number of kanas 'eaten' by kanjis
+				tt = tt + m3.span()[0]
 
-    # initialize depending on card type
-    cols = [
-        "slug",
-        "english_definition",
-        "reading",
-        "grammar",
-        "additional",
-        "jlpt",
-    ]
-    if cardType == "extended":
-        pddata["sound"] = ""
-        cols.insert(len(cols) - 1, "sound")
+			else:
+				s = kana[kanaWordPos:]
 
-        audioSaveDir = "generated/audio/"
+			# the furigana'd kanji string, separated by space
+			out = " " + m.group() + f_l + s + f_r
+			outWord = outWord + kanji[lastMatchLoc:kanjiWordPos] + out
+			fk.append(out)
 
-        # set up directory if not present yet
-        os.makedirs(audioSaveDir, exist_ok=True)
+			# update position of last kanji searched
+			lastMatchLoc = m.span()[1]
 
-        excludeFileLoc = audioSaveDir + "notAvailable.txt"
-        if not os.path.exists(excludeFileLoc):
-            with open(excludeFileLoc, 'w'):
-                pass
-        # make a list of all audio files that exists
-        audios = os.listdir(audioSaveDir)
-        # list of audio files that do not exist to be downloaded - so dont attempt to download these
-        audiosDontDown = open(excludeFileLoc, "r", encoding="utf-8").read().splitlines()
-        logging.info("Downloading any missing audio")
-
-    # add new columns
-    pddata["english_definition"] = ""
-    pddata["grammar"] = ""
-    pddata["reading"] = ""
-    pddata["additional"] = ""
-
-    startI = time.time()
-    # create data of same number of rows, and desired output of columns
-    outData = pd.DataFrame(index=np.arange(len(pddata.index)), columns=cols)
-    # get main word data
-    outData["english_definition"] = pddata["senses"].apply(
-        lambda x: ", ".join(x[0]["english_definitions"])
-    )
-    outData["grammar"] = pddata["senses"].apply(
-        # remove text from () and []
-        lambda x: re.sub("[\(\[].*?[\)\]]", "", ", ".join(x[0]["parts_of_speech"]))
-    )
-    outData["slug"] = pddata["slug"].apply(
-        # Get rid of x-1 issues - sometimes words have -1 appended at the end
-        lambda x: x[: re.search("-[0-9]$", x).span()[0]]
-        if re.search("-[0-9]$", x)
-        else x
-    )
-    # be sure to use the tidied-up slug data
-    outData["reading"] = np.vectorize(makeFurigana)(
-        outData["slug"], pddata["japanese"].str[0].str["reading"]
-    )
-    # Usually kana ensure reading is kana
-    outData["reading"] = np.vectorize(usuallyKanaReading)(
-        outData["reading"], pddata["japanese"], pddata["senses"]
-    )
-    # jlpt level - joined sorted list
-    outData["jlpt"] = pddata["jlpt"].apply(lambda x: " ".join(sorted(x)))
-    # usually kana tag
-    outData["usually_kana"] = pddata["senses"].apply(
-        lambda x: "usually_kana"
-        if ("Usually written using kana alone" in x[0]["tags"])
-        else ""
-    )
-    # formality of the word, append to jlpt tags info
-    outData["formality"] = np.vectorize(extractFormality)(pddata["senses"])
-    
-    # join specific columns together - these fill be tags
-    columns_as_tags = ['usually_kana', 'jlpt', 'formality']
-    # outData["tags"] = outData.apply(lambda row: f"{row[]}")
-    outData["tags"] = ""
-    for c in columns_as_tags:
-        outData["tags"] = outData["tags"] + ' ' + outData[c]
-        outData = outData.drop(c, axis=1)
-    # then rename the "tags" to "jlpt" 
-    outData["jlpt"] = outData["tags"]
-    outData = outData.drop("tags", axis=1)
-
-    for i in tqdm(range(0, len(pddata.index))):
-        if "reading" in pddata["japanese"][i][0]:
-            if cardType == "extended":
-                # choose to download audio if it is usually read as kanji or kana
-                if "usually_kana" in outData["jlpt"][i]:
-                    text = outData["reading"][i]
-                else:
-                    text = outData["slug"][i]
-                audiostr = text + ".mp3"
-
-                bSuccess = False  # whether sound file now exists
-                if audiostr in audios:
-                    bSuccess = True
-                elif audiostr in audiosDontDown:
-                    bSuccess = False
-                elif getAudio(
-                    text,
-                    pddata["japanese"][i][0]["reading"],
-                    audioSaveDir,
-                    excludeFileLoc,
-                ):
-                    bSuccess = True
-                else:
-                    bSuccess = False
-                if bSuccess:
-                    outData.loc[i, "sound"] = (
-                        "[sound:" + audiostr + "]"
-                    )  # naming convention for sound in card
-        else:
-            outData.drop(i)
-
-        # get all the additional english senses
-        l = []
-        for j in pddata["senses"][i][1:]:
-            # skip places and wikipedia entries - they dont seem as good as the others
-            if "Place" in j["parts_of_speech"]:
-                continue
-            elif "Wikipedia definition" in j["parts_of_speech"]:
-                continue
-            # skip if tag contains 'obsolete term'
-            elif "Obsolete term" in j["tags"]:
-                continue
-            l.append(", ".join(j["english_definitions"]))
-        # separate different groups by a different separator
-        l = "; ".join(l)
-        outData.loc[i, "additional"] = l
-    endI = time.time()
-    logging.info(f"Opt version time {str(endI - startI)}")
-
-    # drop rows with matching slugs (e.g. 一日 has two entries. Just take the first)
-    rows_orig = len(outData.index)
-    outData = outData.drop_duplicates(subset=["slug"], keep="first")
-    rows_redu = len(outData)
-    logging.debug(
-        f"Dropped {rows_orig - rows_redu} rows which contained duplicated slugs"
-    )
-    return outData
-
-def drop_exeptions(df: pd.DataFrame) -> pd.DataFrame:
-    """Notable exeptions where the program is known to fail.
-
-    Args:
-                    dataframe with "slug" column
-    Returns:
-                    dataframe with corrected entries
-    """
-    exeptions = [
-        "ＰＥＴ"
-    ]
-
-    # drop every exeption in the above list
-    for e in exeptions:
-        df = df[~df["slug"].str.contains(e)]
-    
-    df = df.reset_index()
-    return df
+	# update the out word for tailing kanas
+	outWord = outWord + kanji[lastMatchLoc:]
+	return outWord.strip()
 
 
-def download_and_generate(N: str, normal: str) -> pd.DataFrame:
-    """Download vocabulary from Jisho for category "N", and generate the "normal" card type.
-    Saves resulting files in the "generated" folder
+def data_to_flashcard(df_data: pd.DataFrame, flashcard_type: str) -> pd.DataFrame:
+	columns_as_tags = ['usually_kana', 'jlpt', 'formality']
 
-    Args:
-                    N (string): JLPT grade of #tag to search Jisho for
-                    normal (string [normal/extended]): [normal/extended] are the only valid arguments.
-                                                                                    normal - contains standard vocabulary card columns.
-                                                                                    extended - as normal, with sound
+	cols = [
+			"slug",
+			"expression",
+			"reading",
+			"english_definition",
+			"grammar",
+			"additional",
+			"tags", # the card tags. Should be kept as the last column for Anki
+		]
+	df = pd.DataFrame(columns=cols)
 
-    Returns:
-                    DataFrame: jlpt dataframe of JLPT level
-    """
+	df["slug"] = df_data["slug"]
+	df["english_definition"] = df_data["senses"].apply(
+		lambda x: ", ".join(x[0]["english_definitions"])
+	)
+	df["expression"] = df_data["japanese"].apply(extract_word_safe)
+	df["japanese_reading"] = df_data["japanese"].apply(
+		lambda x: x[0]["reading"]
+	)
+	df["grammar"] = df_data["senses"].apply(
+		# remove text from () and []
+		lambda x: re.sub("[\(\[].*?[\)\]]", "", ", ".join(x[0]["parts_of_speech"]))
+	)
+	df["additional"] = df_data["senses"].apply(filter_english_definitions)
 
-    # Create the generated folder if not present
-    os.makedirs(folder_name, exist_ok=True)
 
-    # See if the Jisho vocabulary file is already downloaded
-    json_file = os.path.join(folder_name, N + normal + ".json")
-    if not os.path.isfile(json_file):
-        getAllOfGroup(N, json_file)
 
-    # Convert jisho json to anki-ready csv
-    logging.info(f"---------- Converting {N}")
-    with open(json_file, 'r') as file:
-        # Load the JSON data into a dictionary
-        data = json.load(file)['data']
-    pddata = pd.DataFrame(data)
-    df = convertJSONtoTable(pddata, normal)  
-    df = drop_exeptions(df)
+	df["jlpt"] = df_data["jlpt"].apply(
+		lambda x: ', '.join(x)
+	)
+	df["usually_kana"] = df_data["senses"].apply(
+		lambda x: "usually_kana"
+			if ("Usually written using kana alone" in x[0]["tags"]) else ""
+	)
+	# formality of the word, append to jlpt tags info
+	df["formality"] = df_data["senses"].apply(extractFormality)
 
-    # Write df to file
-    csv_file = os.path.join(folder_name, N + normal + ".csv")
-    df.to_csv(csv_file, encoding="utf-8", index=False, header=False)
+	df["reading"] = df.apply(
+		lambda row: row["japanese_reading"] if row["usually_kana"]=="usually_kana" else make_furigana(row["expression"], row["japanese_reading"]),
+		axis=1
+	)
+	df = df.drop(["japanese_reading"], axis=1) # done with the purely kana. Now incorporated as furigana
 
-    return df
+	# make empty entries nan
+	df["tags"] = df[columns_as_tags].replace(r'^\s*$', np.nan, regex=True).apply(
+		lambda row: ', '.join(row.dropna().astype(str)),
+		axis=1
+	)
+
+	# Drop any words that are purely english. Words like ＰＥＴ
+	english_pattern = re.compile(r'^[A-Za-zＡ-Ｚａ-ｚ]+$')
+	df = df[~df["expression"].str.contains(english_pattern, regex=True, na=False)]
+
+	df = df.drop(columns_as_tags, axis=1)
+	return df
+
+
+
+
+def convert_json_to_table(pddata: pd.DataFrame, flashcard_type: str) -> pd.DataFrame:
+	"""Convert downloaded Jisho JSON file of vocabulary into a csv file suitable for import into Anki.
+
+	Args:
+					pddata : Dataframe (from downloaded json info)
+					cardType (string [normal/extended]): [normal/extended] are the only valid arguments.
+																					normal - contains standard vocabulary card columns.
+																					extended - as normal, with sound
+	Returns:
+					DataFrame: card-prepared table
+	"""
+
+	if not (flashcard_type == "normal") and not (flashcard_type == "extended"):
+		print("Unknown card type as input")
+		return
+	
+	# tidy up usless columns
+	# pddata = pddata.drop(columns=["is_common", "tags", "attribution"])
+
+	# initialize depending on card type
+	cols = [
+		"slug",
+		"word",
+		"reading",
+		"english_definition",
+		"grammar",
+		"additional",
+		"jlpt", # the card tags. Should be kept as the last column for Anki
+	]
+	if flashcard_type == "extended":
+		pddata["sound"] = ""
+		cols.insert(len(cols) - 1, "sound")
+
+		audioSaveDir = "output/audio/"
+		os.makedirs(audioSaveDir, exist_ok=True)
+
+		excludeFileLoc = audioSaveDir + "notAvailable.txt"
+		if not os.path.exists(excludeFileLoc):
+			with open(excludeFileLoc, 'w'):
+				pass
+		# make a list of all audio files that exists
+		audios = os.listdir(audioSaveDir)
+		# list of audio files that do not exist to be downloaded - so dont attempt to download these
+		audios_dont_download = open(excludeFileLoc, "r", encoding="utf-8").read().splitlines()
+		logging.info("Downloading any missing audio")
+
+
+	# add new columns
+	pddata["english_definition"] = ""
+	pddata["grammar"] = ""
+	pddata["reading"] = ""
+	pddata["additional"] = ""
+
+	startI = time.time()
+	# create data of same number of rows, and desired output of columns
+	out_data = pd.DataFrame(index=np.arange(len(pddata.index)), columns=cols)
+	# get main word data
+	out_data["english_definition"] = pddata["senses"].apply(
+		lambda x: ", ".join(x[0]["english_definitions"])
+	)
+	out_data["grammar"] = pddata["senses"].apply(
+		# remove text from () and []
+		lambda x: re.sub("[\(\[].*?[\)\]]", "", ", ".join(x[0]["parts_of_speech"]))
+	)
+	out_data["slug"] = pddata["slug"].apply(
+		# Get rid of x-1 issues - sometimes words have -1 appended at the end
+		lambda x: x[: re.search("-[0-9]$", x).span()[0]]
+		if re.search("-[0-9]$", x)
+		else x
+	)
+	
+	# be sure to use the tidied-up slug data
+	out_data["reading"] = np.vectorize(makeFurigana)(
+		out_data["slug"], pddata["japanese"].str[0].str["reading"]
+	)
+	# Usually kana ensure reading is kana
+	out_data["reading"] = np.vectorize(usuallyKanaReading)(
+		out_data["reading"], pddata["japanese"], pddata["senses"]
+	)
+	# jlpt level - joined sorted list
+	out_data["jlpt"] = pddata["jlpt"].apply(lambda x: " ".join(sorted(x)))
+	# usually kana tag
+	out_data["usually_kana"] = pddata["senses"].apply(
+		lambda x: "usually_kana"
+		if ("Usually written using kana alone" in x[0]["tags"])
+		else ""
+	)
+	# formality of the word, append to jlpt tags info
+	out_data["formality"] = np.vectorize(extractFormality)(pddata["senses"])
+	
+	# join specific columns together - these fill be tags
+	columns_as_tags = ['usually_kana', 'jlpt', 'formality']
+	# out_data["tags"] = out_data.apply(lambda row: f"{row[]}")
+	out_data["tags"] = ""
+	for c in columns_as_tags:
+		out_data["tags"] = out_data["tags"] + ' ' + out_data[c]
+		out_data = out_data.drop(c, axis=1)
+	# then rename the "tags" to "jlpt" 
+	out_data["jlpt"] = out_data["tags"]
+	out_data = out_data.drop("tags", axis=1)
+
+	for i in tqdm(range(0, len(pddata.index))):
+		if "reading" in pddata["japanese"][i][0]:
+			if flashcard_type == "extended":
+				# choose to download audio if it is usually read as kanji or kana
+				if "usually_kana" in out_data["jlpt"][i]:
+					text = out_data["reading"][i]
+				else:
+					text = out_data["slug"][i]
+				audiostr = text + ".mp3"
+
+				bSuccess = False  # whether sound file now exists
+				if audiostr in audios:
+					bSuccess = True
+				elif audiostr in audiosDontDown:
+					bSuccess = False
+				elif getAudio(
+					text,
+					pddata["japanese"][i][0]["reading"],
+					audioSaveDir,
+					excludeFileLoc,
+				):
+					bSuccess = True
+				else:
+					bSuccess = False
+				if bSuccess:
+					out_data.loc[i, "sound"] = (
+						"[sound:" + audiostr + "]"
+					)  # naming convention for sound in card
+		else:
+			out_data.drop(i)
+
+		# get all the additional english senses
+		l = []
+		for j in pddata["senses"][i][1:]:
+			# skip places and wikipedia entries - they dont seem as good as the others
+			if "Place" in j["parts_of_speech"]:
+				continue
+			elif "Wikipedia definition" in j["parts_of_speech"]:
+				continue
+			# skip if tag contains 'obsolete term'
+			elif "Obsolete term" in j["tags"]:
+				continue
+			l.append(", ".join(j["english_definitions"]))
+		# separate different groups by a different separator
+		l = "; ".join(l)
+		out_data.loc[i, "additional"] = l
+	endI = time.time()
+	logging.info(f"Opt version time {str(endI - startI)}")
+
+	# drop rows with matching slugs (e.g. 一日 has two entries. Just take the first)
+	rows_orig = len(out_data.index)
+	out_data = out_data.drop_duplicates(subset=["slug"], keep="first")
+	rows_redu = len(out_data)
+	logging.debug(
+		f"Dropped {rows_orig - rows_redu} rows which contained duplicated slugs"
+	)
+	return out_data
+
+
+def download_and_generate(jlpt_level: str, flashcard_type: str) -> pd.DataFrame:
+	"""Download vocabulary from Jisho for a given jlpt grade, and generate the flashcard type's data.
+	Saves resulting files in the "generated" folder as a .csv
+
+	Args:
+					jlpt_level (string): JLPT grade of #tag to search Jisho for. Either "jlpt-n5", "jlpt-n1" etc, or "common"
+					flashcard_type (string [normal/extended]): [normal/extended] are the only valid arguments.
+																					normal - contains standard vocabulary card columns.
+																					extended - as normal, also with sound
+
+	Returns:
+					pd.DataFrame: dataframe of JLPT level
+	"""
+
+	os.makedirs(folder_name, exist_ok=True)
+	cache_folder_name = ".cache"
+	os.makedirs(cache_folder_name, exist_ok=True)
+
+
+	# See if the Jisho vocabulary file is already cached.
+	# If the file exists, assume it contains all the words.
+	json_file = os.path.join(cache_folder_name, jlpt_level + ".json")
+	if not os.path.isfile(json_file):
+		get_all_of_level(jlpt_level, json_file)
+
+	logging.info(f"---------- Converting {jlpt_level}")
+	pddata = pd.read_json(json_file, encoding="utf8")
+
+	# Transform the data 
+	# df = convert_json_to_table(pddata, flashcard_type)  
+	df = data_to_flashcard(pddata, flashcard_type)  
+	# df = drop_exeptions(df)
+
+	# Write df to file
+	csv_file = os.path.join(folder_name, N + flashcard_type + ".csv")
+	df.to_csv(csv_file, encoding="utf-8", index=False, header=False)
+
+	return df
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Download JLPT N5-N1 and common vocabulary from Jisho and output anki-ready csv decks",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Print more verbose statements"
-    )
-    parser.add_argument(
-        "-t",
-        "--type",
-        choices=["normal", "extended"],
-        default="normal",
-        help="type of card to generate",
-    )
-    parser.add_argument(
-        "--grades",
-        choices=["jlpt-n5", "jlpt-n4", "jlpt-n3", "jlpt-n2", "jlpt-n1", "common"],
-        default=["jlpt-n5", "jlpt-n4", "jlpt-n3", "jlpt-n2", "jlpt-n1", "common"],
-        nargs="+",
-        help="Comma separated list of JLPT grades to generate",
-    )
-    args = parser.parse_args(argv)
+	parser = argparse.ArgumentParser(
+		description="Download JLPT N5 to N1 and common vocabulary from Jisho and output anki-ready csv decks",
+		formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+	)
+	parser.add_argument(
+		"-v", "--verbose", action="store_true", help="Print more verbose statements"
+	)
+	parser.add_argument(
+		"-t",
+		"--type",
+		choices=["normal", "extended"],
+		default="normal",
+		type=str.lower,
+		help="type of flashcard to generate",
+	)
+	parser.add_argument(
+		"--grades",
+		choices=["jlpt-n5", "jlpt-n4", "jlpt-n3", "jlpt-n2", "jlpt-n1", "common"],
+		default=["jlpt-n5", "jlpt-n4", "jlpt-n3", "jlpt-n2", "jlpt-n1", "common"],
+		nargs="+",
+		type=str.lower,
+		help="Comma separated list of JLPT grades to generate. E.g. `--grades jlpt-n3,jlpt-n5`",
+	)
+	args = parser.parse_args(argv)
 
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+	if args.verbose:
+		logging.getLogger().setLevel(logging.DEBUG)
 
-    return args
+	return args
 
 
 if __name__ == "__main__":
-    args = parse_args()
+	args = parse_args()
 
-    for N in args.grades:
-        download_and_generate(N, args.type)
+	for N in args.grades:
+		download_and_generate(N, args.type)
