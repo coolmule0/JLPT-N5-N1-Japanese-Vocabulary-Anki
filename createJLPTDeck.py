@@ -136,21 +136,32 @@ def get_all_of_level(level: str, fileName: str = ""):
 
 def extract_word_safe(val):
 	"""
-	Get the word 
+	Get the expression from the "japanese" dict structure returns from a jisho api word query.
+
+	Returns:
+					string: the word, in japanese
+
 	"""
 	if isinstance(val, list) and len(val) > 0:
 		first = val[0]
 		if isinstance(first, dict):
-			return first.get('word', None)  # Use get to avoid KeyError
+			return first.get('word', None)
 	return None
 
-def filter_english_definitions(senses):
+def filter_english_definitions(senses) -> str:
 	"""
+	Grabs all the additional english definitions of the word. 
+	
+	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns "the *something* river".
+
 	Coalates the all but the first english_definitions together. Ignores the definition if tagged as 'place' or 'wikipedia definition', as they seem to have worse definitions.
 	Remove duplicate entries.
 	Limits total entries to not have too much info.
+
+	Returns:
+					string: comma separated additional english definitions
 	"""
-	letter_limit = 100 # How many characters to have
+	letter_limit = 100 # How many letters to limit the return string
 	first_defs = set(defn.lower() for defn in senses[0].get('english_definitions', []))
 	
 	# Use the rest of the english definitions, without repeating those
@@ -186,7 +197,7 @@ def extract_formality(senses):
 	Args:
 					senses: senses section of the jlpt word info
 	Returns:
-					array: formalities this word/sense is
+					array: formalities this word/sense is. E.g. ["polite/teineigo"]
 	"""
 	tags = senses[0]["tags"]
 	# a list of pairs. The first is the entry to accept. The latter is what will be provided into the final formality string
@@ -263,12 +274,18 @@ def make_furigana(kanji: str, kana: str) -> str:
 
 	# update the out word for tailing kanas
 	outWord = outWord + kanji[lastMatchLoc:]
+	if outWord == "":
+		logging.debug(f"Returning empty furigana-word for {kana}")
 	return outWord.strip()
 
 
 def data_to_flashcard(df_data: pd.DataFrame, flashcard_type: str) -> pd.DataFrame:
 	"""
 	Take the jisho json-as-dataframe data and convert each entry into a flashcard-ready structure.
+
+	Returns:
+					pd.DataFrame: tidied, study-ready definitions for each japanese word
+
 	"""
 	# Which columns in the output dataframe should be combined & dropped to form the card's tags column
 	columns_as_tags = ['usually_kana', 'jlpt', 'formality']
@@ -291,8 +308,6 @@ def data_to_flashcard(df_data: pd.DataFrame, flashcard_type: str) -> pd.DataFram
 	logging.debug(dupes["slug"])
 	df = df.drop(dupes.index)
 	df = df.drop(["slug"], axis=1)
-	# df = df.reset_index()
-
 
 	# The primary english definition of the word
 	df["english_definition"] = df_data["senses"].apply(
@@ -300,10 +315,6 @@ def data_to_flashcard(df_data: pd.DataFrame, flashcard_type: str) -> pd.DataFram
 	)
 	# The kanji/usual writing of the word
 	df["expression"] = df_data["japanese"].apply(extract_word_safe)
-	# The kana-based reading of the word
-	df["japanese_reading"] = df_data["japanese"].apply(
-		lambda x: x[0]["reading"]
-	)
 	# The grammar structure of the word
 	df["grammar"] = df_data["senses"].apply(
 		# remove text from () and []
@@ -322,18 +333,18 @@ def data_to_flashcard(df_data: pd.DataFrame, flashcard_type: str) -> pd.DataFram
 	# formality of the word
 	df["formality"] = df_data["senses"].apply(extract_formality)
 
+	# The kana-based reading of the word
+	df["japanese_reading"] = df_data["japanese"].apply(
+		lambda x: x[0]["reading"]
+	)
 	# The furigana kanji reading of the word
 	df["reading"] = df.apply(
 		lambda row: row["japanese_reading"] if row["usually_kana"]=="usually_kana" else make_furigana(row["expression"], row["japanese_reading"]),
 		axis=1
 	)
-	df = df.drop(["japanese_reading"], axis=1) # done with the purely kana. Now incorporated as furigana
+	df = df.drop(["japanese_reading"], axis=1) # finished with the purely kana. Now incorporated as furigana
 
-	# Combine misc columns into tags. make empty entries nan
-	# df["tags"] = df[columns_as_tags].replace(r'^\s*$', np.nan, regex=True).apply(
-	# 	lambda row: ', '.join(row.dropna().astype(str)),
-	# 	axis=1
-	# )
+	# Combine tag columns (specified in `columns_as_tags`) into single tags column. Expects the columns to have either array entries or Null/None
 	df["tags"] = df[columns_as_tags].apply(
 		lambda row: [i for sublist in row if sublist for i in sublist],
 		axis=1
@@ -347,12 +358,8 @@ def data_to_flashcard(df_data: pd.DataFrame, flashcard_type: str) -> pd.DataFram
 	# Ensure expression entry isn't empty. Can occur for kana only words (e.g. いいえ). Replace with the kana "reading"
 	df["expression"] = df["expression"].fillna(df["reading"])
 
-	# Set any none fields to empty
-	df = df.fillna(value=np.nan)
-
-	# Line up the indicies, that might be dropped, etc
+	# Tidy up the indices
 	df = df.reset_index(drop=True)
-
 	return df
 
 
