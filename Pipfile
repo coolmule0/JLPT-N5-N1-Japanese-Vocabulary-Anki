@@ -8,7 +8,6 @@ black = "*"
 notebook = "*"
 
 [packages]
-genanki = "*"
 tqdm = "*"
 beautifulsoup4 = "==4.9.3"
 bs4 = "==0.0.1"
@@ -22,6 +21,7 @@ soupsieve = "==2.2.1"
 requests = "*"
 notebook = "*"
 regex = "*"
+genanki = "*"
 
 [requires]
 python_version = "3.9"
