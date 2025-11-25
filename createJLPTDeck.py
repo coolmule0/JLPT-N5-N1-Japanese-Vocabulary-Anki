@@ -3,6 +3,7 @@ import os
 import re
 import logging
 from pathlib import Path
+import zipfile
 
 import pandas as pd
 
@@ -12,9 +13,8 @@ from jlpt_anki import AnkiPackage
 Uses the information stored in the csvs about words/jlpt-level, and the jmdict dictionary to create information-rich words for study.
 """
 
-
 def setup() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
 
 ####################
@@ -36,12 +36,33 @@ def extract_jlpt_csvs_from_folder(folder_path: Path) -> pd.DataFrame:
 	else:
 		return None
 
-def load_jmdict_json(jmdict_file) -> pd.DataFrame:
+def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict]:
 	"""
-	Load up the jmdictionary in json format
+	Unzip and load up the jmdictionary in zipped json format.
+
+	Returns: tuple: dictionary in dataframe form, and the tags mapping their occurence in the dictionary to a more verbose explanation
 	"""
-	# make this a path
-	with open(jmdict_file, "r") as f:
+	# extraction folder is same place as zip (e.g., "data.zip" → "data")
+	# extract_dir = os.path.splitext(jmdict_zip_file)[0]
+	unzip_file = jmdict_zip_file.with_suffix(".json")
+	folder = jmdict_zip_file.parents[0]
+
+	# If extraction folder doesn't exist, extract
+	if not os.path.exists(unzip_file):
+		with zipfile.ZipFile(jmdict_zip_file, "r") as z:
+			names = z.namelist()
+
+			if len(names) != 1:
+				raise ValueError(f"Expected exactly one file in the ZIP, found: {names}")
+			
+			path_name = z.extract(names[0], folder)
+			unzip_file = path_name
+			print(f"Extracted to: {unzip_file}")
+	else:
+		logging.info(f"Extraction skipped; jmdict json already exists: {unzip_file}")
+		
+			
+	with open(unzip_file, "r") as f:
 		data = json.load(f)
 
 	jmdict = pd.DataFrame(data["words"])
@@ -53,7 +74,7 @@ def load_jmdict_json(jmdict_file) -> pd.DataFrame:
 	jmdict_tags_mapping["n"] = "noun"
 	jmdict_tags_mapping["hon"] = "honorific/尊敬語"
 	jmdict_tags_mapping["pol"] = "polite/丁寧語"
-	jmdict_tags_mapping["hum"] = "humble/ 謙譲語"
+	jmdict_tags_mapping["hum"] = "humble/謙譲語"
 
 	return (jmdict, jmdict_tags_mapping)
 
@@ -93,7 +114,7 @@ def make_furigana(kanji: str, kana: str) -> str:
 					string: Kanji word with furigana
 	"""
 	if not kana:
-		assert(False, "No kana reading provided.")
+		assert False, "No kana reading provided."
 		return
 	if not kanji:
 		return kana
@@ -192,13 +213,13 @@ def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defn
 ####################
 ## Transforms
 
-def clean_w(df) -> pd.DataFrame:
+def clean(df) -> pd.DataFrame:
 	rdf = df.copy()
 	rdf = rdf.dropna(subset=["jmdict_seq"])  # Drop any rows with NaN values
 	rdf["jmdict_seq"] = rdf["jmdict_seq"].astype(int) # convert from floats to ints
 	
 	# Drop duplicates in jmdict_seq, keeping the lowest/easiest level (which comes first in the df)
-	dupes = rdf[df.duplicated(subset="jmdict_seq", keep="first")]
+	dupes = rdf[rdf.duplicated(subset="jmdict_seq", keep="first")]
 	logging.debug("Duplicated jmdict_seq rows dropped:")
 	logging.debug(dupes["jmdict_seq"])
 	rdf = rdf.drop(dupes.index)
@@ -239,7 +260,7 @@ def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict:
 
 def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataFrame:
 	"""
-
+	Use the dictionary information to construct meaningful columns
 	"""
 	rdf = df.copy()
 	rdf["english_definition"] = rdf["english_definition"].str.join(', ')
@@ -272,14 +293,25 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataF
 
 def finalise(df) -> pd.DataFrame:
 	rdf = df.copy()
+
+	# Column name tidy
 	rdf = rdf.drop(["kana", "kanji", "waller_definition", "additional", "misc", "reading_kanji", "reading_kana", "usually_kana", "formality"], axis=1)
 	rdf = rdf.rename({"reduced_additional": "additional"}, axis=1)
+
+	# Data checks have expected structure for anki import
+	assert rdf["tags"].apply(lambda x: isinstance(x, list)).all(), "tags column is not a list"
+	required_cols = {"expression", "english_definition", "reading", "grammar", "additional"}
+	assert required_cols.issubset(rdf.columns), f"Missing columns: {required_cols - set(rdf.columns)}"
+
+	# Shuffle the rows
+	rdf = rdf.sample(frac=1).reset_index(drop=True)
+
 	return rdf
 
 def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataFrame:
 	rdf = df.copy()
 
-	rdf = clean_w(rdf)
+	rdf = clean(rdf)
 
 	# Use the data in the .CSVs to look up words in the dictionary. Return a new dataframe with the new information
 	df_lookup = rdf.apply(lambda x: lookup_dict(x["jmdict_seq"], jmdict), axis=1, result_type="expand")
@@ -287,12 +319,8 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict)
 	rdf = pd.concat([rdf, df_lookup], axis=1)
 
 	rdf = prepare_word_record(rdf, jmdict_tags_mapping)
-	print("After prepare_word_record")
-	print(rdf)
 
 	rdf = finalise(rdf)
-	print("After finalise")
-	print(rdf)
 
 	return rdf
 
@@ -304,16 +332,17 @@ def load(df: pd.DataFrame) -> None:
 	"""
 	Converts it to Anki data
 	"""
-	# Save to file
-	df.to_csv("output/full.csv", index=False)
+	# Save to csv file
+	csv_path = Path("output", "full.csv")
+	logging.info(f"Saving csv to {csv_path}")
+	df.to_csv(csv_path, index=False)
 
 	# Store the info into an anki deck
 	package = AnkiPackage()
-
 	# Add a new note for each row/word
 	df.apply(lambda x: package.add_note(x, x["jlpt_level"]), axis=1)
 
-	package.save_to_file()
+	package.save_to_folder("output")
 
 ####################
 ## The pipeline
@@ -326,7 +355,7 @@ def run():
 
 	# Load JLPT-by-level from .csv(s)
 	logging.info("Loading JLPT words from csvs...")
-	df = extract_jlpt_csvs_from_folder("original_data")
+	df = extract_jlpt_csvs_from_folder(Path("original_data"))
 	
 	# Transform/clean these csvs for use
 	logging.info("Transforming data	...")
@@ -335,8 +364,6 @@ def run():
 	# Transform/prepare the dataframe for use as anki flashcards
 	logging.info("Finalising for anki...")
 	load(df)
-	
-	print(df)
 
 if __name__ == "__main__":
 	run()

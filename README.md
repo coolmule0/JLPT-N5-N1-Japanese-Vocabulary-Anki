@@ -10,15 +10,26 @@ This was used to create the decks [JLPT-N5-N1 Japanese Vocabulary](https://ankiw
 
 The "extended" deck contains everything of the normal deck as well as audio pronunciation for some words.
 
+The raw files for use with anki are available 
+
 Following this readme will provide exactly the deck available on Anki (linked above). Unless you wish to make modifications to the deck and code, it is far easier to download the deck using the links above.
 
 ![An anki card](example_images/example_anki.png)
 
+## Installing 
+
+Ensure you have python installed. Tested on python 3.13. Recommended to install project dependencies in its own virtual environment:
+
+``` bash
+python -m venv env
+source env/bin/activate  # Linux/Mac
+source .\env\Scripts\activate   # or Windows
+pip install -r requirements.txt
+```
+
 ## How to Generate Files
 
-Ensure Python Version 3.X is installed. I would suggest also having pipenv installed (`pip install pipenv`). Then run `pipenv shell` in this folder, then `python createJLPTDeck.py`. Resulting files will be created in the `output` folder.
-
-An issue with this deck's approach is that the words returned from querying anki for #jlpt-n1 are not consistent. Different calls to the same page can return different results. Creating a more consistent 
+With python installed along with the project dependencies, run `python createJLPTDeck.py` Resulting files will be created in the `output` folder.
 
 ### Suggested run arguments
 

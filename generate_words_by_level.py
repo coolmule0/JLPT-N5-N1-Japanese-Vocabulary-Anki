@@ -4,23 +4,23 @@ Generate a list of ((word, jlpt level) pairs.
 This step is needed because Jisho.org has an unreliable API that returns different results on occasion. A stable solution is to have a fixed list within this repo saved which has the words to use. Coming back to the deck to make changes, the list can be queried and added when necessary, but known to have the words desired within.
 """
 
-# search jisho by word - whats returned?
+# [x] search jisho by word - whats returned?
 
-# Archaic definitions to ignore?
+# [x]Archaic definitions to ignore? 
 
-# consistent words from anki
+# [x] consistent words from anki
 
-#clear install/requirements instructions
+# [ ] clear install/requirements instructions
 
-#audio
+# [ ] audio
 
-#example sentences
+# [ ] example sentences
 
+# [ ] additional grammar
 
-#additional grammar
+# [ ] Add number of cards per deck in description
 
-# Add number of cards per deck in description
-# Make the raw csv/.apkg files available for download
+# [ ] Make the raw csv/.apkg files available for download
 
 
 import os
