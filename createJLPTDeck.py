@@ -1,216 +1,85 @@
 import json
+import os
 import re
-import os.path
-import time
-import argparse
 import logging
-from typing import TextIO, List, Any
+from pathlib import Path
 
 import pandas as pd
-import numpy as np
-from bs4 import BeautifulSoup
-from tqdm import tqdm 
-import requests
+
+from jlpt_anki import AnkiPackage
 
 """
-A script to download JLPT N5-N1 and common vocabulary from Jisho and output anki-ready csv decks.
- 
-Stores jisho call results to a .cache directory to avoid repeadly querying the site.
+Uses the information stored in the csvs about words/jlpt-level, and the jmdict dictionary to create information-rich words for study.
 """
 
-# folder to save generated results in.
-# This folder will contain a .csv and a .json
-folder_name = "output"
 
-logging.basicConfig(
-	level=logging.INFO,
-	format="%(asctime)s %(levelname)s %(message)s",
-)
+def setup() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
 
-def getAudio(wordKanji: str, wordKana: str, saveDir: str, excludeFile: TextIO) -> bool:
-	"""Download audio from Jisho.org for word
+####################
+## Extract/load data from files
 
-	Args:
-					wordKanji (string): Kanji for the word
-					wordKana (string): kana for the word
-					saveDir (string): Where to save the audo
-					excludeFile (fie): File for audio to not search for. Contains a single column of all words.mp3 that should not be downloaded. This function does not check this, only appends to it if it fails
-
-	Returns:
-					bool: whether word mp3 is saved in directory (not necessarily donwloading if it already exists)
-	"""
-
-	logging.debug(f"Attempting to download {wordKanji}")
-
-	baseUrl = "https://jisho.org/search/"
-	# search using both kanji and kana to ensure first result is desired
-	search = (
-		baseUrl + urllib.parse.quote(wordKanji) + "%20" + urllib.parse.quote(wordKana)
-	)
-
-	# get url page into a useable format
-	try:
-		page = urllib.request.urlopen(search).read()
-	except:
-		return False
-	soup = BeautifulSoup(page, features="lxml")
-	audiotag = soup.find("audio")
-	# ensure it is of the first result
-	if (audiotag) and (audiotag.find_parent("div", {"class": "exact_block"})):
-		audioUrl = audiotag.find("source").get(
-			"src"
-		)  # assume audio would be first, if present
-		urllib.request.urlretrieve(
-			"http:" + audioUrl, saveDir + wordKanji + ".mp3"
-		)  # source in webpage lacks "http:" prefix
-		return True
+def extract_jlpt_csvs_from_folder(folder_path: Path) -> pd.DataFrame:
+	dfs = []
+	
+	for level in ["n5", "n4", "n3", "n2", "n1"]:
+		csv_path = os.path.join(folder_path, f"{level}.csv")
+		if os.path.exists(csv_path):
+			df = pd.read_csv(csv_path)
+			df["jlpt_level"] = level.upper()
+			dfs.append(df)
+	
+	if dfs:
+		merged_df = pd.concat(dfs, ignore_index=True)
+		return merged_df
 	else:
-		# Note word as failed- so can speed up next time by not checking
-		with open(excludeFile, "a", encoding="utf-8") as f:
-			f.write(wordKanji + ".mp3\n")
-		return False
+		return None
 
-
-def get_all_of_level(level: str, fileName: str = ""):
-	"""SLOW OPERATION. Download all the words for a `group` from Jisho and save into a json file.
-
-	Args:
-					level (string): Jisho Category to search for (e.g. N3) or tag (e.g. #common (note # for tag searches))
-					fileName (string, optional): filename output to save json data. Defaults to "$(level).json"
+def load_jmdict_json(jmdict_file) -> pd.DataFrame:
 	"""
-
-	if fileName == "":
-		fileName = level + ".json"
-
-	# number of results returned from JSON query for a page
-	num_results = 1
-	# keep track of pages of results
-	page = 1
-
-	# Big JSON storage file
-	all_jisho_results = []
-
-	base_url = "https://jisho.org/api/v1/search/words"
-
-	logging.info(f"Querying Jisho for {level} words")
-
-	with requests.Session() as session:
-
-		# Jisho has a limit of 20 results per page, so run for multiple pages until no more results.
-		# We don't know how many pages there will be in advance before querying the site
-		while True:
-			params = {
-				"keyword": f"#{level}",
-				"page": page,
-			}
-			response = session.get(base_url, params=params)
-
-			if response.status_code != 200:
-				logging.error(f"Failed to fetch page {page}, status code: {response.status_code}")
-				break
-
-			text_response = response.json()
-			data = text_response["data"]
-
-			#json_results = query_jisho_term(f"#{level}&page={str(page_counter)}")
-			num_results = len(data)
-
-			# jisho.org currently has a limit of 1000 pages
-			if num_results == 0 or page > 999:
-				break
-
-			all_jisho_results += data
-			page += 1
-
-			logging.info(f"Page {page}\r")
-
-			#debug
-			#page = 1000
-
-	logging.info(f"Found {str(page - 1)} pages with {len(all_jisho_results)} words")
-
-	# Write to a file
-	with open(fileName, "w", encoding="utf-8") as jf:
-		json.dump(all_jisho_results, jf, indent=3, ensure_ascii=False)
-
-def extract_word_safe(val):
+	Load up the jmdictionary in json format
 	"""
-	Get the expression from the "japanese" dict structure returns from a jisho api word query.
+	# make this a path
+	with open(jmdict_file, "r") as f:
+		data = json.load(f)
 
-	Returns:
-					string: the word, in japanese
+	jmdict = pd.DataFrame(data["words"])
+	jmdict["id"] = jmdict["id"].astype(int)
 
+	# What the short tags used in the dictionary mean
+	jmdict_tags_mapping = data["tags"]
+	# custom changes:
+	jmdict_tags_mapping["n"] = "noun"
+	jmdict_tags_mapping["hon"] = "honorific/尊敬語"
+	jmdict_tags_mapping["pol"] = "polite/丁寧語"
+	jmdict_tags_mapping["hum"] = "humble/ 謙譲語"
+
+	return (jmdict, jmdict_tags_mapping)
+
+####################
+## Transform helpers
+
+def extract_addition_engl(entry) -> list[str]:
 	"""
-	if isinstance(val, list) and len(val) > 0:
-		first = val[0]
-		if isinstance(first, dict):
-			return first.get('word', None)
-	return None
-
-def filter_english_definitions(senses) -> str:
+	Extract all the additional definitions for the word
 	"""
-	Grabs all the additional english definitions of the word. 
-	
-	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns "the *something* river".
-
-	Coalates the all but the first english_definitions together. Ignores the definition if tagged as 'place' or 'wikipedia definition', as they seem to have worse definitions.
-	Remove duplicate entries.
-	Limits total entries to not have too much info.
-
-	Returns:
-					string: comma separated additional english definitions
-	"""
-	letter_limit = 100 # How many letters to limit the return string
-	first_defs = set(defn.lower() for defn in senses[0].get('english_definitions', []))
-	
-	# Use the rest of the english definitions, without repeating those
-	filtered_defs = []
-	seen = set()  # To track duplicates (case-insensitive).
-
-	for sense in senses[1:]:
-		# Check if parts_of_speech contains neither "Place" nor "Wikipedia definition"
-		if any(pos in ["Place", "Wikipedia definition"] for pos in sense.get("parts_of_speech", [])):
-			continue
-		
-		for defn in sense.get("english_definitions", []):
-			defn_lower = defn.lower()
-			# Add if not in first sense and not already seen
-			if defn_lower not in first_defs and defn_lower not in seen:
-				filtered_defs.append(defn)
-				seen.add(defn_lower)
-	# Limit the total letters.
-	letter_count = 0
-	for i in range(len(filtered_defs)):
-		single_def = filtered_defs[i]
-		letter_count += len(single_def)
-		if letter_count > letter_limit:
-			filtered_defs = filtered_defs[:i]
-			break
-			
-	return ", ".join(filtered_defs)
-
-def extract_formality(senses):
-	"""
-	Extracts the formality tags from a string array
-
-	Args:
-					senses: senses section of the jlpt word info
-	Returns:
-					array: formalities this word/sense is. E.g. ["polite/teineigo"]
-	"""
-	tags = senses[0]["tags"]
-	# a list of pairs. The first is the entry to accept. The latter is what will be provided into the final formality string
-	accept = {
-		"Humble (kenjougo) language": "humble/kenjougo",
-		"Honorific or respectful (sonkeigo) language": "respectful/sonkeigo",
-		"Polite (teineigo) language": "polite/teineigo",
-	}
-	formalities = []
-	for t in tags:
-		if t in accept:
-			formalities.append(accept[t])
-	return formalities
+	adds = []
+	# Every sense after the first
+	for i in entry["sense"].iloc[0][1:]:
+		accept = True
+		for m in i["misc"]:
+			# not an archaic usage, nor place name
+			if m in ["arch", "place"]:
+				accept = False
+		# grammar usage is the same.
+		# E.g. reject english definitions when the verb is intransitive rather than the primary definition usage
+		if i["partOfSpeech"] != entry["sense"].iloc[0][0]["partOfSpeech"]:
+			accept = False
+		# Combine the texts together in an array
+		if accept:
+			adds.append([x["text"] for x in i["gloss"]])
+	return adds
 
 def make_furigana(kanji: str, kana: str) -> str:
 	"""Generate a furigana word from associated kanji and kana. Is able to handle words with kana between the kanji.
@@ -240,13 +109,16 @@ def make_furigana(kanji: str, kana: str) -> str:
 	fk = []
 	# for each kanji in the word
 	if kanji:
+		# Search over kanji
 		for m in re.finditer("[一-龯々]+", kanji):
 			kanjiWordPos = m.span()[0]
 			kanaWordPos = kanjiWordPos + tt
 
 			# find the next furigana(s) in the kanji word
 			searchLoc = m.span()[1]
-			m2 = re.search(r"[ぁ-んァヿ]+", kanji[searchLoc:])
+
+			# Search over hiragana and katakana
+			m2 = re.search(r"[ぁ-んァ-ヿ]+", kanji[searchLoc:])
 			if m2:
 				# find this kana match in the kana word
 				searchLoc = searchLoc + tt
@@ -278,164 +150,193 @@ def make_furigana(kanji: str, kana: str) -> str:
 		logging.debug(f"Returning empty furigana-word for {kana}")
 	return outWord.strip()
 
-
-def data_to_flashcard(df_data: pd.DataFrame, flashcard_type: str) -> pd.DataFrame:
+def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defns: list[str]) -> str:
 	"""
-	Take the jisho json-as-dataframe data and convert each entry into a flashcard-ready structure.
+	Grabs all the additional english definitions of the word. 
+	
+	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns "the *something* river".
+
+	Remove duplicate entries.
+	Limits total entries to not have too much info.
 
 	Returns:
-					pd.DataFrame: tidied, study-ready definitions for each japanese word
-
+					string: comma separated additional english definitions
 	"""
-	# Which columns in the output dataframe should be combined & dropped to form the card's tags column
-	columns_as_tags = ['usually_kana', 'jlpt', 'formality']
+	letter_limit = 200 # How many letters to limit the return string
+	first_defs = set(defn.lower() for defn in primary_eng_defns)
+	
+	# Use the rest of the english definitions, without repeating those
+	filtered_defs = []
+	seen = set()  # To track duplicates (case-insensitive).
 
-	# The columns of the card. Defined here to have the column ordering obvious.
-	cols = [
-			"expression",
-			"reading",
-			"english_definition",
-			"grammar",
-			"additional",
-			"tags", # the card's tags. Should be kept as the last column for Anki
-		]
-	df = pd.DataFrame(columns=cols)
+	for senses in additional_lst:
+		for s in senses:
+		
+		# for defn in sense.get("english_definitions", []):
+			defn_lower = s.lower()
+			# Add if not in first sense and not already seen
+			if defn_lower not in first_defs and defn_lower not in seen:
+				filtered_defs.append(s)
+				seen.add(defn_lower)
+	# Limit the total letters.
+	letter_count = 0
+	for i in range(len(filtered_defs)):
+		single_def = filtered_defs[i]
+		letter_count += len(single_def)
+		if letter_count > letter_limit:
+			filtered_defs = filtered_defs[:i]
+			break
+			
+	return filtered_defs
 
-	# Jiso API might return multiple results of the same slug. Drop them
-	df["slug"] = df_data["slug"]
-	dupes = df[df.duplicated(subset="slug", keep="first")]
-	logging.debug("Duplicated rows dropped:")
-	logging.debug(dupes["slug"])
-	df = df.drop(dupes.index)
-	df = df.drop(["slug"], axis=1)
+####################
+## Transforms
 
-	# The primary english definition of the word
-	df["english_definition"] = df_data["senses"].apply(
-		lambda x: ", ".join(x[0]["english_definitions"])
-	)
-	# The kanji/usual writing of the word
-	df["expression"] = df_data["japanese"].apply(extract_word_safe)
-	# The grammar structure of the word
-	df["grammar"] = df_data["senses"].apply(
-		# remove text from () and []
-		lambda x: re.sub("[\(\[].*?[\)\]]", "", ", ".join(x[0]["parts_of_speech"]))
-	)
-	# Additional english definitions. Not usually how the word is primarily used, but can be used within the language
-	df["additional"] = df_data["senses"].apply(filter_english_definitions)
-
-	# Which JLPT grade(s)
-	df["jlpt"] = df_data["jlpt"] # keeping as an array of jlpt tags
-	# Whether the card is usually read as kana
-	df["usually_kana"] = df_data["senses"].apply(
-		lambda x: ["usually_kana"]
-			if ("Usually written using kana alone" in x[0]["tags"]) else None # keep entries as array for easy merging in below step
-	)
-	# formality of the word
-	df["formality"] = df_data["senses"].apply(extract_formality)
-
-	# The kana-based reading of the word
-	df["japanese_reading"] = df_data["japanese"].apply(
-		lambda x: x[0]["reading"]
-	)
-	# The furigana kanji reading of the word
-	df["reading"] = df.apply(
-		lambda row: row["japanese_reading"] if row["usually_kana"]=="usually_kana" else make_furigana(row["expression"], row["japanese_reading"]),
-		axis=1
-	)
-	df = df.drop(["japanese_reading"], axis=1) # finished with the purely kana. Now incorporated as furigana
-
-	# Combine tag columns (specified in `columns_as_tags`) into single tags column. Expects the columns to have either array entries or Null/None
-	df["tags"] = df[columns_as_tags].apply(
-		lambda row: [i for sublist in row if sublist for i in sublist],
-		axis=1
-	)
-	df = df.drop(columns_as_tags, axis=1)
-
-	# Drop any words that are purely english. Words like ＰＥＴ
-	english_pattern = re.compile(r'^[A-Za-zＡ-Ｚａ-ｚ]+$')
-	df = df[~df["expression"].str.contains(english_pattern, regex=True, na=False)]
-
-	# Ensure expression entry isn't empty. Can occur for kana only words (e.g. いいえ). Replace with the kana "reading"
-	df["expression"] = df["expression"].fillna(df["reading"])
-
-	# Tidy up the indices
-	df = df.reset_index(drop=True)
-	return df
+def clean_w(df) -> pd.DataFrame:
+	rdf = df.copy()
+	rdf = rdf.dropna(subset=["jmdict_seq"])  # Drop any rows with NaN values
+	rdf["jmdict_seq"] = rdf["jmdict_seq"].astype(int) # convert from floats to ints
+	
+	# Drop duplicates in jmdict_seq, keeping the lowest/easiest level (which comes first in the df)
+	dupes = rdf[df.duplicated(subset="jmdict_seq", keep="first")]
+	logging.debug("Duplicated jmdict_seq rows dropped:")
+	logging.debug(dupes["jmdict_seq"])
+	rdf = rdf.drop(dupes.index)
 
 
-def download_and_generate(jlpt_level: str, flashcard_type: str) -> pd.DataFrame:
-	"""Download vocabulary from Jisho for a given jlpt grade, and generate the flashcard type's data.
-	Saves resulting files in the "generated" folder as a .csv
+	# fill NAN kanji with blank, since these values should be empty, it's not an error
+	rdf["kanji"] = rdf["kanji"].fillna("")
+	return rdf
 
-	Args:
-					jlpt_level (string): JLPT grade of #tag to search Jisho for. Either "jlpt-n5", "jlpt-n1" etc, or "common"
-					flashcard_type (string [normal/extended]): [normal/extended] are the only valid arguments.
-																					normal - contains standard vocabulary card columns.
-																					extended - as normal, also with sound
+def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict:
+	"""
+	Using the jmdict in json form (https://github.com/scriptin/jmdict-simplified/) imported as a pandas dataframe.
+	"""
+	entry = jmdict[jmdict["id"] == dict_id]
+	if len(entry) < 1:
+		logging.error(f"Not found {dict_id}")
 
-	Returns:
-					pd.DataFrame: dataframe of JLPT level
+	# Need .iloc[0][0] structure due to importing nested json into dataframe
+	
+	kanji = entry["kanji"].iloc[0][0]["text"] if len(entry["kanji"].iloc[0])  > 0 else ""
+	kana = entry["kana"].iloc[0][0]["text"] if len(entry["kana"].iloc[0])  > 0 else ""
+
+	additional = extract_addition_engl(entry)
+			
+	newdict = {
+		# "expression": entry.kanji_forms[0],
+		"reading_kanji": kanji,
+		"reading_kana": kana,
+		"english_definition": [x["text"] for x in entry["sense"].iloc[0][0]["gloss"]],
+		"grammar": entry["sense"].iloc[0][0]["partOfSpeech"],
+		"additional": additional,
+		# "formality": entry["sense"].iloc[0][0]["misc"], #pol, hon,
+		# "usually_kana": entry["sense"].iloc[0][0]["misc"], #uk
+		"misc": entry["sense"].iloc[0][0]["misc"],
+	}
+	return newdict
+	# expression,reading,english_definition,grammar,additional,tags,japanese_reading
+
+def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataFrame:
 	"""
 
-	os.makedirs(folder_name, exist_ok=True)
-	cache_folder_name = ".cache"
-	os.makedirs(cache_folder_name, exist_ok=True)
+	"""
+	rdf = df.copy()
+	rdf["english_definition"] = rdf["english_definition"].str.join(', ')
+	rdf["grammar"] = df["grammar"].apply(lambda lst: [jmdict_tags_mapping[l] for l in lst])
+	rdf["grammar"] = rdf["grammar"].str.join(', ')
+
+	rdf["reduced_additional"] = df.apply(lambda x: filter_english_definitions(x["additional"], x["english_definition"]), axis=1)
+	rdf["reduced_additional"] = rdf["reduced_additional"].str.join(', ')
+
+	# Is the word usually written in kana?
+	rdf["usually_kana"] = df["misc"].apply( lambda lst: True if "uk" in lst else False)
+
+	# Make the furigana reading, but not necessary if the word is usually_kana
+	rdf["reading"] = rdf.apply(
+			lambda row: row["reading_kana"] if row["usually_kana"]=="usually_kana" else \
+								make_furigana(row["reading_kanji"], row["reading_kana"]),
+							axis=1)
+
+	# Formality of the word
+	formal_tags = ["hon", "pol", "hum"]
+	rdf["formality"] = df["misc"].apply(lambda lst: [jmdict_tags_mapping[x] for x in lst if x in formal_tags])
+	# rdf["formality"] = rdf["formality"].apply(lambda lst: [formal_map[l] for l in lst])
+
+	rdf["expression"] = df.apply(lambda x: x["reading_kanji"] if x["reading_kanji"] != "" else x["reading_kana"], axis=1)
+
+	rdf["tags"] = rdf.apply( lambda x: "usually_kana" if x["usually_kana"] else  "", axis = 1)
+	rdf["tags"] = rdf.apply( lambda x: x["formality"] + [x["tags"]], axis=1)
+	
+	return rdf	
+
+def finalise(df) -> pd.DataFrame:
+	rdf = df.copy()
+	rdf = rdf.drop(["kana", "kanji", "waller_definition", "additional", "misc", "reading_kanji", "reading_kana", "usually_kana", "formality"], axis=1)
+	rdf = rdf.rename({"reduced_additional": "additional"}, axis=1)
+	return rdf
+
+def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataFrame:
+	rdf = df.copy()
+
+	rdf = clean_w(rdf)
+
+	# Use the data in the .CSVs to look up words in the dictionary. Return a new dataframe with the new information
+	df_lookup = rdf.apply(lambda x: lookup_dict(x["jmdict_seq"], jmdict), axis=1, result_type="expand")
+	# Join the original csv with the dictionary information
+	rdf = pd.concat([rdf, df_lookup], axis=1)
+
+	rdf = prepare_word_record(rdf, jmdict_tags_mapping)
+	print("After prepare_word_record")
+	print(rdf)
+
+	rdf = finalise(rdf)
+	print("After finalise")
+	print(rdf)
+
+	return rdf
 
 
-	# See if the Jisho vocabulary file is already cached.
-	# If the file exists, assume it contains all the words.
-	json_file = os.path.join(cache_folder_name, jlpt_level + ".json")
-	if not os.path.isfile(json_file):
-		get_all_of_level(jlpt_level, json_file)
+####################
+## Ready the words for export/Anki
 
-	logging.info(f"---------- Converting {jlpt_level}")
-	pddata = pd.read_json(json_file, encoding="utf8")
+def load(df: pd.DataFrame) -> None:
+	"""
+	Converts it to Anki data
+	"""
+	# Save to file
+	df.to_csv("output/full.csv", index=False)
 
-	# Transform the data 
-	df = data_to_flashcard(pddata, flashcard_type)  
+	# Store the info into an anki deck
+	package = AnkiPackage()
 
-	# Write df to file
-	csv_file = os.path.join(folder_name, jlpt_level + flashcard_type + ".csv")
-	# df.to_csv(csv_file, encoding="utf-8", index=False, header=False)
-	df.to_csv(csv_file, encoding="utf-8", index=False, header=True)
+	# Add a new note for each row/word
+	df.apply(lambda x: package.add_note(x, x["jlpt_level"]), axis=1)
 
-	return df
+	package.save_to_file()
 
+####################
+## The pipeline
+def run():
+	setup()
 
-def parse_args(argv=None):
-	parser = argparse.ArgumentParser(
-		description="Download JLPT N5 to N1 and common vocabulary from Jisho and output anki-ready csv decks",
-		formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-	)
-	parser.add_argument(
-		"-v", "--verbose", action="store_true", help="Print more verbose statements"
-	)
-	parser.add_argument(
-		"-t",
-		"--type",
-		choices=["normal", "extended"],
-		default="normal",
-		type=str.lower,
-		help="type of flashcard to generate",
-	)
-	parser.add_argument(
-		"--grades",
-		choices=["jlpt-n5", "jlpt-n4", "jlpt-n3", "jlpt-n2", "jlpt-n1", "common"],
-		default=["jlpt-n5", "jlpt-n4", "jlpt-n3", "jlpt-n2", "jlpt-n1", "common"],
-		nargs="+",
-		type=str.lower,
-		help="Comma separated list of JLPT grades to generate. E.g. `--grades jlpt-n3,jlpt-n5`. Defaults to all grades & common words.",
-	)
-	args = parser.parse_args(argv)
+	# Load dictionary from json
+	logging.info("Loading jmdict from zipped json...")
+	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path(f"original_data/jmdict-eng-3.6.1.zip"))
 
-	if args.verbose:
-		logging.getLogger().setLevel(logging.DEBUG)
+	# Load JLPT-by-level from .csv(s)
+	logging.info("Loading JLPT words from csvs...")
+	df = extract_jlpt_csvs_from_folder("original_data")
+	
+	# Transform/clean these csvs for use
+	logging.info("Transforming data	...")
+	df = transform(df, jmdict, jmdict_tags_mapping)
 
-	return args
-
+	# Transform/prepare the dataframe for use as anki flashcards
+	logging.info("Finalising for anki...")
+	load(df)
+	
+	print(df)
 
 if __name__ == "__main__":
-	args = parse_args()
-
-	for N in args.grades:
-		download_and_generate(N, args.type)
+	run()

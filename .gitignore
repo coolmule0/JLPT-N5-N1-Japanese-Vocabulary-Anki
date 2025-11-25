@@ -138,3 +138,6 @@ dmypy.json
 *.csv
 
 .vscode
+
+# The jmdict dictionary
+jmdict*.json

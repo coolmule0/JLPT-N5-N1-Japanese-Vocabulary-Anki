@@ -22,6 +22,9 @@ requests = "*"
 notebook = "*"
 regex = "*"
 genanki = "*"
+pandera = {extras = ["pandas"], version = "*"}
+jamdict = "*"
+jamdict-data = "*"
 
 [requires]
 python_version = "3.9"

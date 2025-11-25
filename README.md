@@ -1,6 +1,10 @@
-# JLPT-N5-N1-Japanese-Vocabulary-Anki
+# JLPT N5 to N1 Japanese Vocabulary Flashcard Deck for Anki
 
-Generate a csv file suitable for importing into [Anki](https://apps.ankiweb.net/) by searching [Jisho.org](https://jisho.org/) for JLPT Tags (N5, N3, e.t.c.).
+For learning japanese vocabulary in accordance with the official Japanese Language Proficiency Tests (JLPT), using flashcards and spaced repetition with the [Anki](https://apps.ankiweb.net/) software.
+
+This is prefaced that there is no official JLPT vocabulary list anymore, not since the reformation of the exam structure around 2010.
+
+This repository generates a `.csv` or `.apkg` file suitable for importing into [Anki](https://apps.ankiweb.net/) by searching [Jisho.org](https://jisho.org/) for JLPT Tags (N5, N3, e.t.c.),
 
 This was used to create the decks [JLPT-N5-N1 Japanese Vocabulary](https://ankiweb.net/shared/info/1550984460) and [JLPT-N5-N1 Japanese Vocabulary Extended Notes](https://ankiweb.net/shared/info/336300824)
 
@@ -12,7 +16,9 @@ Following this readme will provide exactly the deck available on Anki (linked ab
 
 ## How to Generate Files
 
-Ensure Python Version 3.X is installed. I would suggest also having pipenv installed (`pip install pipenv`). Then run `pipenv shell` in this folder, then `python createJLPTDeck.py`. Resulting files will be created in the "generated" folder.
+Ensure Python Version 3.X is installed. I would suggest also having pipenv installed (`pip install pipenv`). Then run `pipenv shell` in this folder, then `python createJLPTDeck.py`. Resulting files will be created in the `output` folder.
+
+An issue with this deck's approach is that the words returned from querying anki for #jlpt-n1 are not consistent. Different calls to the same page can return different results. Creating a more consistent 
 
 ### Suggested run arguments
 
@@ -22,9 +28,12 @@ Ensure Python Version 3.X is installed. I would suggest also having pipenv insta
 
 `python createAnkiDeck.py -v` will create various `.apkg` files ready for import. These files can be imported directly into Anki without constructing decks or models beforehand. If running this command then the remainder of this file can be skipped as the deck will be set up correctly.
 
-## Importing Into Anki
+## Importing Into Anki using a .apkg
+Running `createAnkiDeck.py` results in a .apkg file being generated in the `output` folder. The apkg file is an anki-specific format that contains all the deck and flashcard information already baked in. Import the file into Anki according to the instructions for your client. Usually something like an "import file" button. Done! :)
 
-After running the script, as described above, there should now be a `generated` folder, and optionally a `audio` folder if the `--type extended` argument was used. Each csv file can be imported into Anki to create its own deck. 
+## Importing Into Anki using a csv
+
+After running the script, as described above, there should now be a `output` folder, and optionally a `audio` folder if the `--type extended` argument was used with a csv for each deck. Each csv file can be imported into Anki to create its own deck. 
 
 However, the decks can be combined together into a more complete master deck.
 
