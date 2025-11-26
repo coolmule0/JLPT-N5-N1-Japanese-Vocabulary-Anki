@@ -215,7 +215,7 @@ def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defn
 
 def clean(df) -> pd.DataFrame:
 	rdf = df.copy()
-	rdf = rdf.dropna(subset=["jmdict_seq"])  # Drop any rows with NaN values
+	rdf = rdf.dropna(subset=["jmdict_seq"]).copy()  # Drop any rows with NaN values
 	rdf["jmdict_seq"] = rdf["jmdict_seq"].astype(int) # convert from floats to ints
 	
 	# Drop duplicates in jmdict_seq, keeping the lowest/easiest level (which comes first in the df)
@@ -275,7 +275,7 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataF
 
 	# Make the furigana reading, but not necessary if the word is usually_kana
 	rdf["reading"] = rdf.apply(
-			lambda row: row["reading_kana"] if row["usually_kana"]=="usually_kana" else \
+			lambda row: row["reading_kana"] if row["usually_kana"] else \
 								make_furigana(row["reading_kanji"], row["reading_kana"]),
 							axis=1)
 
@@ -304,7 +304,14 @@ def finalise(df) -> pd.DataFrame:
 	assert required_cols.issubset(rdf.columns), f"Missing columns: {required_cols - set(rdf.columns)}"
 
 	# Shuffle the rows
-	rdf = rdf.sample(frac=1).reset_index(drop=True)
+	# rdf = rdf.sample(frac=1).reset_index(drop=True)
+	rdf = (
+		rdf.groupby('jlpt_level', group_keys=True)
+		.apply(lambda g: g.sample(frac=1, random_state=42))
+		.reset_index(drop=True)
+	)
+	# Rearrange columns
+	rdf = rdf[["jlpt_level", "expression", "english_definition", "reading", "grammar", "additional", "tags"]]
 
 	return rdf
 

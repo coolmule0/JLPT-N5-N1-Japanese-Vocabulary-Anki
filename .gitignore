@@ -113,6 +113,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+# UV/project/modules
+pyproject.toml
 uv.lock
 
 # Spyder project settings
@@ -132,6 +134,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
 
 # Anki decks
 *.apkg

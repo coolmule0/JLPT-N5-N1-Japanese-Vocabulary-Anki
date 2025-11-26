@@ -1,8 +1,8 @@
 # JLPT N5 to N1 Japanese Vocabulary Flashcard Deck for Anki
 
-For learning japanese vocabulary in accordance with the official Japanese Language Proficiency Tests (JLPT), using flashcards and spaced repetition with the [Anki](https://apps.ankiweb.net/) software.
+Vocabulary flashcards for learning japanese vocabulary in accordance with the official Japanese Language Proficiency Tests (JLPT). using flashcards and spaced repetition with the [Anki](https://apps.ankiweb.net/) software.
 
-This is prefaced that there is no official JLPT vocabulary list anymore, not since the reformation of the exam structure around 2010.
+This is prefaced that there is no official JLPT vocabulary list. This list uses [Jonathan Waller‘s JLPT Resources](https://www.tanos.co.uk/jlpt/), which is also used by many well-established japanese language sites like [Jisho.org](https://jisho.org)
 
 This repository generates a `.csv` or `.apkg` file suitable for importing into [Anki](https://apps.ankiweb.net/) by searching [Jisho.org](https://jisho.org/) for JLPT Tags (N5, N3, e.t.c.),
 
@@ -18,7 +18,7 @@ Following this readme will provide exactly the deck available on Anki (linked ab
 
 ## Installing 
 
-Ensure you have python installed. Tested on python 3.13. Recommended to install project dependencies in its own virtual environment:
+Ensure you have python installed. Tested using python version 3.13. I would recommended installing the project dependencies in their own virtual environment:
 
 ``` bash
 python -m venv env
