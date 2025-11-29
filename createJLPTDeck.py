@@ -8,6 +8,7 @@ import zipfile
 import pandas as pd
 
 from jlpt_anki import AnkiPackage
+from wanikani_audio import download_missing_wanikani_audio
 
 """
 Uses the information stored in the csvs about words/jlpt-level, and the jmdict dictionary to create information-rich words for study.
@@ -358,8 +359,13 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict,
 
 	rdf = prepare_word_record(rdf, jmdict_tags_mapping)
 
-	# TODO: Download available audio
+	# Add audio to the df
 	rdf = append_audio(rdf, wani_audio)
+	# Download missing audio
+	rdf = download_missing_wanikani_audio(rdf, wani_audio)
+	# wani_audio = pd.concat([wani_audio, more_wani_audio], ignore_index=True)
+	# And add it to the main df
+	# rdf = append_audio(rdf, wani_audio)
 
 	rdf = finalise(rdf)
 

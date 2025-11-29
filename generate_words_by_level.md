@@ -4,8 +4,10 @@
 
 # [x] consistent words from anki
 
-# [ ] audio
+# [x] audio
 Jisho.org scrape for words
+other anki lists, take their words
+wanikani api
 
 # [ ] example sentences
 Probably from Tatoeba
@@ -22,9 +24,11 @@ Probably from Tatoeba
 
 # Tests
 Usually kana tag has reading in kana form
+BUG: ７日 [noka]?! Should be nanoka 
 
 
 JLPT Resources to consider
 Wanikani
 JLPT Sensei
 Jisho
+ミニストーリーで覚える JLPT日本語能力試験ベスト単語N1 合格2600 （単行本）
