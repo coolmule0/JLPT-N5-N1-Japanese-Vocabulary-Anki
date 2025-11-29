@@ -78,6 +78,24 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict]:
 
 	return (jmdict, jmdict_tags_mapping)
 
+def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
+	"""
+	check what audio files already exist.
+
+	Should be named with as an interger.ext e.g. 13456744.mp3, where the integer corresponds to the jmdict entry for the word
+	"""
+
+	audio_files_dicts = []
+	for child in audio_folder.iterdir():
+		audio_file_dict = {
+			"wani_audio_path": child,
+			"jmdict_seq": int(child.stem),
+		}
+		audio_files_dicts.append(audio_file_dict)
+
+	return pd.DataFrame(audio_files_dicts)
+
+
 ####################
 ## Transform helpers
 
@@ -291,7 +309,20 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataF
 	
 	return rdf	
 
-def finalise(df) -> pd.DataFrame:
+def append_audio(main_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame:
+	"""
+	Join audio to the list
+	"""
+	rdf = main_df.merge(
+		audio_df,
+		on="jmdict_seq",
+		how="left",
+	)
+
+	return rdf
+
+
+def finalise(df: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
 
 	# Column name tidy
@@ -311,11 +342,11 @@ def finalise(df) -> pd.DataFrame:
 		.reset_index(drop=True)
 	)
 	# Rearrange columns
-	rdf = rdf[["jlpt_level", "expression", "english_definition", "reading", "grammar", "additional", "tags"]]
+	rdf = rdf[["jlpt_level", "expression", "english_definition", "reading", "grammar", "additional", "tags", "wani_audio_path"]]
 
 	return rdf
 
-def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataFrame:
+def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict, wani_audio: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
 
 	rdf = clean(rdf)
@@ -326,6 +357,9 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict)
 	rdf = pd.concat([rdf, df_lookup], axis=1)
 
 	rdf = prepare_word_record(rdf, jmdict_tags_mapping)
+
+	# TODO: Download available audio
+	rdf = append_audio(rdf, wani_audio)
 
 	rdf = finalise(rdf)
 
@@ -345,28 +379,38 @@ def load(df: pd.DataFrame) -> None:
 	df.to_csv(csv_path, index=False)
 
 	# Store the info into an anki deck
-	package = AnkiPackage()
+	package = AnkiPackage("extended")
 	# Add a new note for each row/word
 	df.apply(lambda x: package.add_note(x, x["jlpt_level"]), axis=1)
 
 	package.save_to_folder("output")
+
+def extract():
+	# Extract dictionary from json
+	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path(f"original_data/jmdict-eng-3.6.1.zip"))
+	logging.info("Extracted jmdict from zipped json.")
+
+	# Extract JLPT-by-level from .csv(s)
+	df = extract_jlpt_csvs_from_folder(Path("original_data"))
+	logging.info("Extracted JLPT words from csvs.")
+
+	# Extract any existing wanikani audio files
+	wani_audio = extract_saved_wanikani_audio(Path("original_data", "wanikani"))
+	logging.info("Extracted existing wanikani audio.")
+
+	return df, jmdict, jmdict_tags_mapping, wani_audio
 
 ####################
 ## The pipeline
 def run():
 	setup()
 
-	# Load dictionary from json
-	logging.info("Loading jmdict from zipped json...")
-	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path(f"original_data/jmdict-eng-3.6.1.zip"))
+	logging.info("Extracting info from files...")
+	df, jmdict, jmdict_tags_mapping, wani_audio = extract()
 
-	# Load JLPT-by-level from .csv(s)
-	logging.info("Loading JLPT words from csvs...")
-	df = extract_jlpt_csvs_from_folder(Path("original_data"))
-	
 	# Transform/clean these csvs for use
 	logging.info("Transforming data	...")
-	df = transform(df, jmdict, jmdict_tags_mapping)
+	df = transform(df, jmdict, jmdict_tags_mapping, wani_audio)
 
 	# Transform/prepare the dataframe for use as anki flashcards
 	logging.info("Finalising for anki...")

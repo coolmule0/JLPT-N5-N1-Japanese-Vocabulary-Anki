@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 import logging
 
+import pandas as pd
 import genanki
 
 """
@@ -75,11 +76,12 @@ class AnkiPackage:
 	"""
 	def __init__(self, type: Literal["core", "extended"] = "core") -> None:		# entend the information if using extended (media sound) deck
 		if type == "core":
-			self.extended = False
+			self.audio = False
 			self.model = model_core
 		else:
-			self.extended = True
+			self.audio = True
 			self.model = model_audio
+			self.audio_paths = []
 		
 		# keep a record of the notes added to avoid repeats
 		self.entries = []
@@ -93,7 +95,7 @@ class AnkiPackage:
 		# Construct names
 		deck_names = []
 		deck_layer_names = [
-			"Core Japanese Vocabulary Extended" if self.extended else "Core Japanese Vocabulary",
+			"Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary",
 			"JLPT N1",
 			"JLPT N2",
 			"JLPT N3",
@@ -151,8 +153,16 @@ class AnkiPackage:
 			tags=note["tags"],
 			due=notes_in_deck, # make sure each due card is a different index
 		)
-		if self.extended:
-			my_note.fields.append(note["sound"] if (type(note["sound"]) == str) else "")
+		if self.audio:
+			# audio path exists, i.e. has a corresponding audio file
+			if pd.notna(note["wani_audio_path"]):
+				filename = note["wani_audio_path"].name
+				note_entry = f"[sound:{filename}]"
+				my_note.fields.append(note_entry)
+
+				self.audio_paths.append(note["wani_audio_path"])
+			else:
+				my_note.fields.append("")
 
 		deck.add_note(my_note)
 		self.entries.append(note["expression"])
@@ -162,11 +172,14 @@ class AnkiPackage:
 		Creates an apkg file of the combined info
 		"""
 		# package the decks together
-		p_name = "Core Japanese Vocabulary Extended" if self.extended else "Core Japanese Vocabulary"
+		p_name = "Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary"
 		
 		filename = Path(folder_path, f"{p_name}.apkg")
 		logging.info(f"Saving anki package to {filename}")
-		genanki.Package(self.decks).write_to_file(filename)
+		package = genanki.Package(self.decks)
+		if self.audio:
+			package.media_files = self.audio_paths
+		package.write_to_file(filename)
 
 # class JlptNote(genanki.Note):
 #   @property
