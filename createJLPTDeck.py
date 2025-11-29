@@ -58,9 +58,9 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict]:
 			
 			path_name = z.extract(names[0], folder)
 			unzip_file = path_name
-			print(f"Extracted to: {unzip_file}")
+			logging.debug(f"Extracted to: {unzip_file}")
 	else:
-		logging.info(f"Extraction skipped; jmdict json already exists: {unzip_file}")
+		logging.debug(f"Extraction skipped; jmdict json already exists: {unzip_file}")
 		
 			
 	with open(unzip_file, "r") as f:
@@ -141,6 +141,9 @@ def make_furigana(kanji: str, kana: str) -> str:
 	f_l = "["
 	f_r = "]"
 
+	KANJI_PATTERN = r"[一-龯々０-９Ａ–Ｚ]+"
+	KANA_PATTERN = r"[ぁ-んァ-ヿ]+"
+
 	# keep track of extra character spaces that are 'eaten' by kanjis
 	tt = 0
 	# furigana-kanji lists
@@ -150,7 +153,7 @@ def make_furigana(kanji: str, kana: str) -> str:
 	# for each kanji in the word
 	if kanji:
 		# Search over kanji
-		for m in re.finditer("[一-龯々]+", kanji):
+		for m in re.finditer(KANJI_PATTERN, kanji):
 			kanjiWordPos = m.span()[0]
 			kanaWordPos = kanjiWordPos + tt
 
@@ -158,7 +161,7 @@ def make_furigana(kanji: str, kana: str) -> str:
 			searchLoc = m.span()[1]
 
 			# Search over hiragana and katakana
-			m2 = re.search(r"[ぁ-んァ-ヿ]+", kanji[searchLoc:])
+			m2 = re.search(KANA_PATTERN, kanji[searchLoc:])
 			if m2:
 				# find this kana match in the kana word
 				searchLoc = searchLoc + tt

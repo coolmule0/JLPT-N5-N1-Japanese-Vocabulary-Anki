@@ -108,8 +108,6 @@ def download_wanikani_audio_url(url: str, filename: str) -> Path:
 	return filename_path
 
 
-
-
 def download_missing_wanikani_audio(df: pd.DataFrame, wani_audio: pd.DataFrame) -> pd.DataFrame:
 	"""
 	df: with audio paths as a column, filled for entries already existing
