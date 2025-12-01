@@ -31,13 +31,12 @@ def extract_jlpt_csvs_from_folder(folder_path: Path) -> pd.DataFrame:
 			df["jlpt_level"] = level.upper()
 			dfs.append(df)
 	
-	if dfs:
-		merged_df = pd.concat(dfs, ignore_index=True)
-		return merged_df
-	else:
-		return None
+	assert(len(dfs) > 0)
+	
+	merged_df = pd.concat(dfs, ignore_index=True)
+	return merged_df
 
-def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict]:
+def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str, str]]:
 	"""
 	Unzip and load up the jmdictionary in zipped json format.
 
@@ -57,7 +56,7 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict]:
 				raise ValueError(f"Expected exactly one file in the ZIP, found: {names}")
 			
 			path_name = z.extract(names[0], folder)
-			unzip_file = path_name
+			unzip_file = Path(path_name)
 			logging.debug(f"Extracted to: {unzip_file}")
 	else:
 		logging.debug(f"Extraction skipped; jmdict json already exists: {unzip_file}")
@@ -100,9 +99,9 @@ def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
 ####################
 ## Transform helpers
 
-def extract_addition_engl(entry) -> list[str]:
+def extract_addition_engl(entry: pd.DataFrame) -> list[list[str]]:
 	"""
-	Extract all the additional definitions for the word
+	Extract all the additional definitions for the word from the dictionary
 	"""
 	adds = []
 	# Every sense after the first
@@ -193,7 +192,7 @@ def make_furigana(kanji: str, kana: str) -> str:
 		logging.debug(f"Returning empty furigana-word for {kana}")
 	return outWord.strip()
 
-def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defns: list[str]) -> str:
+def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defns: list[str]) -> list[str]:
 	"""
 	Grabs all the additional english definitions of the word. 
 	
@@ -235,7 +234,7 @@ def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defn
 ####################
 ## Transforms
 
-def clean(df) -> pd.DataFrame:
+def clean(df: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
 	rdf = rdf.dropna(subset=["jmdict_seq"]).copy()  # Drop any rows with NaN values
 	rdf["jmdict_seq"] = rdf["jmdict_seq"].astype(int) # convert from floats to ints
@@ -251,13 +250,15 @@ def clean(df) -> pd.DataFrame:
 	rdf["kanji"] = rdf["kanji"].fillna("")
 	return rdf
 
-def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict:
+def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict[str, str|list[str]]:
 	"""
 	Using the jmdict in json form (https://github.com/scriptin/jmdict-simplified/) imported as a pandas dataframe.
 	"""
 	entry = jmdict[jmdict["id"] == dict_id]
 	if len(entry) < 1:
 		logging.error(f"Not found {dict_id}")
+	if len(entry) > 1:
+		logging.error(f"Too many entries found in dictionary for id {dict_id}")
 
 	# Need .iloc[0][0] structure due to importing nested json into dataframe
 	
@@ -273,20 +274,18 @@ def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict:
 		"english_definition": [x["text"] for x in entry["sense"].iloc[0][0]["gloss"]],
 		"grammar": entry["sense"].iloc[0][0]["partOfSpeech"],
 		"additional": additional,
-		# "formality": entry["sense"].iloc[0][0]["misc"], #pol, hon,
-		# "usually_kana": entry["sense"].iloc[0][0]["misc"], #uk
 		"misc": entry["sense"].iloc[0][0]["misc"],
 	}
 	return newdict
 	# expression,reading,english_definition,grammar,additional,tags,japanese_reading
 
-def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataFrame:
+def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -> pd.DataFrame:
 	"""
 	Use the dictionary information to construct meaningful columns
 	"""
 	rdf = df.copy()
 	rdf["english_definition"] = rdf["english_definition"].str.join(', ')
-	rdf["grammar"] = df["grammar"].apply(lambda lst: [jmdict_tags_mapping[l] for l in lst])
+	rdf["grammar"] = rdf["grammar"].apply(lambda lst: [jmdict_tags_mapping[item] for item in lst])
 	rdf["grammar"] = rdf["grammar"].str.join(', ')
 
 	rdf["reduced_additional"] = df.apply(lambda x: filter_english_definitions(x["additional"], x["english_definition"]), axis=1)
@@ -301,17 +300,21 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict) -> pd.DataF
 								make_furigana(row["reading_kanji"], row["reading_kana"]),
 							axis=1)
 
+	###
+	# Tags part
 	# Formality of the word
 	formal_tags = ["hon", "pol", "hum"]
-	rdf["formality"] = df["misc"].apply(lambda lst: [jmdict_tags_mapping[x] for x in lst if x in formal_tags])
-	# rdf["formality"] = rdf["formality"].apply(lambda lst: [formal_map[l] for l in lst])
-
-	rdf["expression"] = df.apply(lambda x: x["reading_kanji"] if x["reading_kanji"] != "" else x["reading_kana"], axis=1)
+	rdf["formality"] = rdf["misc"].apply(lambda lst: [jmdict_tags_mapping[x] for x in lst if x in formal_tags])
+	
+	# Rarely used words
+	rdf["rare"] = rdf["misc"].apply(lambda lst: ["rare_term" for x in lst if x in ["rare"]])
 
 	rdf["tags"] = rdf.apply( lambda x: "usually_kana" if x["usually_kana"] else  "", axis = 1)
-	rdf["tags"] = rdf.apply( lambda x: x["formality"] + [x["tags"]], axis=1)
+	rdf["tags"] = rdf.apply( lambda x: x["formality"] + [x["tags"]] + x["rare"], axis=1)
 	
-	return rdf	
+	rdf["expression"] = df.apply(lambda x: x["reading_kanji"] if x["reading_kanji"] != "" else x["reading_kana"], axis=1)
+
+	return rdf
 
 def append_audio(main_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame:
 	"""
@@ -341,16 +344,16 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 	# Shuffle the rows
 	# rdf = rdf.sample(frac=1).reset_index(drop=True)
 	rdf = (
-		rdf.groupby('jlpt_level', group_keys=True)
-		.apply(lambda g: g.sample(frac=1, random_state=42))
-		.reset_index(drop=True)
+	rdf.groupby('jlpt_level', group_keys=True)
+				.sample(frac=1, random_state=42)
+				.reset_index(drop=True)
 	)
 	# Rearrange columns
 	rdf = rdf[["jlpt_level", "expression", "english_definition", "reading", "grammar", "additional", "tags", "wani_audio_path"]]
 
 	return rdf
 
-def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict, wani_audio: pd.DataFrame) -> pd.DataFrame:
+def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
 
 	rdf = clean(rdf)
@@ -392,11 +395,11 @@ def load(df: pd.DataFrame) -> None:
 	# Add a new note for each row/word
 	df.apply(lambda x: package.add_note(x, x["jlpt_level"]), axis=1)
 
-	package.save_to_folder("output")
+	package.save_to_folder(Path("output"))
 
-def extract():
+def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]:
 	# Extract dictionary from json
-	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path(f"original_data/jmdict-eng-3.6.1.zip"))
+	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path("original_data/jmdict-eng-3.6.1.zip"))
 	logging.info("Extracted jmdict from zipped json.")
 
 	# Extract JLPT-by-level from .csv(s)
@@ -411,7 +414,7 @@ def extract():
 
 ####################
 ## The pipeline
-def run():
+def run() -> None:
 	setup()
 
 	logging.info("Extracting info from files...")

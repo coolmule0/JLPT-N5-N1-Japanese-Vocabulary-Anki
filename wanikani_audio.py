@@ -1,6 +1,7 @@
 import logging
 import time
 from pathlib import Path
+import json
 
 import pandas as pd
 import requests
@@ -12,33 +13,43 @@ Handle the downloading of audio files from wanikani
 
 def download_wanikani_vocab() -> (pd.DataFrame):
 	"""
-	Returns: vocab entries and the audio download info 
+	Returns: vocab entries and the audio download info
 	"""
-	# get token
-	with open("wanikani_token", "r") as f:
-		token = f.read()[:-1] # ignore newline
-	
-	url = "https://api.wanikani.com/v2/subjects"
-	headers = {
-		"Authorization": f"Bearer {token}"
-	}
+	wanikani_cache_path = Path(".cache", "wanikani_vocab.json")
 
-	payload = {"types": "vocabulary"}
+	# Assume the cache file existing means the data is already present and up to date
+	if wanikani_cache_path.is_file():
+		with open(wanikani_cache_path, 'r') as file:
+			response_data = json.load(file)
+	else:
+		# get token
+		with open("wanikani_token", "r") as f:
+			token = f.read()[:-1] # ignore newline
+		
+		url = "https://api.wanikani.com/v2/subjects"
+		headers = {
+			"Authorization": f"Bearer {token}"
+		}
 
-	logging.debug("Querying wanikani.com for available vocabulary.")
+		payload = {"types": "vocabulary"}
 
-	with requests.Session() as s:
-		response = s.get(url, headers=headers, params=payload)
-		response_data = response.json()["data"]
+		logging.debug("Querying wanikani.com for available vocabulary.")
 
-		next_page_url = response.json()["pages"]["next_url"]
-
-		while next_page_url:
-			response = s.get(next_page_url, headers=headers)
-			response_data += response.json()["data"]
+		with requests.Session() as s:
+			response = s.get(url, headers=headers, params=payload)
+			response_data = response.json()["data"]
 
 			next_page_url = response.json()["pages"]["next_url"]
-		# TODO: add cache and store last modified. Store in .cache somewhere. Can avoid full page returns if no changes since previous call
+
+			while next_page_url:
+				response = s.get(next_page_url, headers=headers)
+				response_data += response.json()["data"]
+
+				next_page_url = response.json()["pages"]["next_url"]
+
+		# Store the data in local cache
+		wanikani_cache_path.parent.mkdir(parents=True, exist_ok=True)
+		wanikani_cache_path.write_text(json.dumps(response_data))
 
 	d_rows = []
 	pron_rows = []
@@ -56,6 +67,7 @@ def download_wanikani_vocab() -> (pd.DataFrame):
 	df_entries
 
 	return df_entries
+
 
 def parse_entry(data: dict) -> tuple[dict, list]:
 	"""
@@ -77,7 +89,6 @@ def parse_entry(data: dict) -> tuple[dict, list]:
 
 
 def download_wanikani_audio_url(url: str, filename: str) -> Path:
-	# url = row["url"]
 	response = requests.get(url)
 	response.raise_for_status()
 
@@ -124,25 +135,17 @@ def download_missing_wanikani_audio(df: pd.DataFrame, wani_audio: pd.DataFrame) 
 		df_entries,
 		on=['reading_kanji', "reading_kana"],
 		how="left",
-		# indicator=True
 	)
 
 	df_available = dff[~dff["url"].isnull()]
 
-	# downloaded_dicts = []
-	for _, row in tqdm(df_available.iterrows(), total=df_available.shape[0]):
-		filename_path = download_wanikani_audio_url(row["url"], row["jmdict_seq"])
-		
-		# audio_dict = {
-		# 	"wani_audio_path": filename_path,
-		# 	"jmdict_seq": int(filename_path.stem),
-		# }
-		# downloaded_dicts.append[audio_dict]
+	if df_available.shape[0] > 0:
+		for _, row in tqdm(df_available.iterrows(), total=df_available.shape[0]):
+			filename_path = download_wanikani_audio_url(row["url"], row["jmdict_seq"])
+			
+			rdf[rdf[jmdict_seq] == row["jmdict_seq"]]["wani_audio_path"] = filename_path
 
-		rdf[rdf[jmdict_seq] == row["jmdict_seq"]]["wani_audio_path"] = filename_path
+			# Don't hit the servers too much
+			time.sleep(1)
 
-		# Don't hit the servers too much
-		time.sleep(1)
-
-	# return pd.DataFrame(downloaded_dicts)
 	return rdf

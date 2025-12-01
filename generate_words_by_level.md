@@ -10,7 +10,7 @@ other anki lists, take their words
 wanikani api
 
 # [ ] example sentences
-Probably from Tatoeba
+Probably from Tatoeba 
 
 # [ ] additional grammar
 
@@ -24,7 +24,7 @@ Probably from Tatoeba
 
 # Tests
 Usually kana tag has reading in kana form
-BUG: ７日 [noka]?! Should be nanoka 
+BUG: ７日 [noka]?! Should be nanoka. Also ９日. The first kana has disappeared.
 
 
 JLPT Resources to consider

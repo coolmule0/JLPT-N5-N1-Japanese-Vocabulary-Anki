@@ -81,10 +81,10 @@ class AnkiPackage:
 		else:
 			self.audio = True
 			self.model = model_audio
-			self.audio_paths = []
+			self.audio_paths: list[Path] = []
 		
 		# keep a record of the notes added to avoid repeats
-		self.entries = []
+		self.entries: list[str] = []
 
 		self.init_decks()
 
@@ -129,7 +129,7 @@ class AnkiPackage:
 		}
 		return self.decks[deck_mapping[deck_name]]
 
-	def add_note(self, note, deck_name: str):
+	def add_note(self, note: pd.Series, deck_name: str) -> None:
 		"""
 		Create and adds a note to the revelant deck by searching its containing tags
 		"""
@@ -167,7 +167,7 @@ class AnkiPackage:
 		deck.add_note(my_note)
 		self.entries.append(note["expression"])
 
-	def save_to_folder(self, folder_path):
+	def save_to_folder(self, folder_path: Path) -> None:
 		"""
 		Creates an apkg file of the combined info
 		"""
