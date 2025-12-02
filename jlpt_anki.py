@@ -180,8 +180,6 @@ class AnkiPackage:
 		if self.audio:
 			package.media_files = self.audio_paths
 		package.write_to_file(filename)
-
-# class JlptNote(genanki.Note):
-#   @property
-#   def guid(self):
-#     return genanki.guid_for(self.fields[0], self.fields[1])
+	
+	def get_cards_in_deck(self) -> list[int]:
+		return {d.name: len(d.notes) for d in self.decks}

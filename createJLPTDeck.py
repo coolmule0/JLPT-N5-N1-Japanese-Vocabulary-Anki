@@ -95,6 +95,20 @@ def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
 
 	return pd.DataFrame(audio_files_dicts)
 
+def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]:
+	# Extract dictionary from json
+	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path("original_data/jmdict-eng-3.6.1.zip"))
+	logging.info("Extracted jmdict from zipped json.")
+
+	# Extract JLPT-by-level from .csv(s)
+	df = extract_jlpt_csvs_from_folder(Path("original_data"))
+	logging.info("Extracted JLPT words from csvs.")
+
+	# Extract any existing wanikani audio files
+	wani_audio = extract_saved_wanikani_audio(Path("original_data", "wanikani"))
+	logging.info("Extracted existing wanikani audio.")
+
+	return df, jmdict, jmdict_tags_mapping, wani_audio
 
 ####################
 ## Transform helpers
@@ -353,6 +367,48 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 
 	return rdf
 
+def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    # Identify rows
+    has_kanji_and_usually_kana = df["kanji"].ne("") & df["tags"].apply(lambda t: "usually_kana" in t)
+    blank_kanji = df["kanji"].eq("")
+
+	# JLPT difficulty ranking (lower number = easier)
+    jlpt_rank = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5}
+
+    # Helper to get rank, unknown levels get a high rank (hardest)
+    def get_rank(level):
+        return jlpt_rank.get(level, 99)
+
+    # To drop
+    drop_indices = []
+
+    # Group by reading
+    for reading, group in df.groupby("reading"):
+        idx_usually = group.index[has_kanji_and_usually_kana.loc[group.index]]
+        idx_blank = group.index[blank_kanji.loc[group.index]]
+
+        # Only act if both types are present
+        if len(idx_usually) > 0 and len(idx_blank) > 0:
+            for i1 in idx_usually:
+                for i2 in idx_blank:
+                    # Compare JLPT levels
+                    rank1 = get_rank(df.at[i1, "jlpt_level"])
+                    rank2 = get_rank(df.at[i2, "jlpt_level"])
+					
+                    if rank1 > rank2:
+                        # i1 is harder, drop it
+                        drop_indices.append(i1)
+                    elif rank2 > rank1:
+                        # i2 is harder, drop it
+                        drop_indices.append(i2)
+                    else:
+                        # Tie or unknown — drop higher index as fallback
+                        drop_indices.append(max(i1, i2))
+    # Return df with the designated rows dropped
+    return df.drop(index=set(drop_indices))
+
 def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
 
@@ -365,13 +421,13 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 
 	rdf = prepare_word_record(rdf, jmdict_tags_mapping)
 
+	# drop 
+	rdf = drop_equivalent_rows(rdf)
+
 	# Add audio to the df
 	rdf = append_audio(rdf, wani_audio)
-	# Download missing audio
+	# Download and add missing audio
 	rdf = download_missing_wanikani_audio(rdf, wani_audio)
-	# wani_audio = pd.concat([wani_audio, more_wani_audio], ignore_index=True)
-	# And add it to the main df
-	# rdf = append_audio(rdf, wani_audio)
 
 	rdf = finalise(rdf)
 
@@ -390,7 +446,7 @@ def load(df: pd.DataFrame) -> None:
 	logging.info(f"Saving csv to {csv_path}")
 	df.to_csv(csv_path, index=False)
 
-	# Store the info into an anki deck
+	# Store the info into anki packages (made up of multiple decks)
 	deck_types = ["core", "extended"]
 	for dt in deck_types:
 		package = AnkiPackage(dt)
@@ -402,20 +458,6 @@ def load(df: pd.DataFrame) -> None:
 
 		logging.debug(f"Cards per deck: {package.get_cards_in_deck()}")
 
-def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]:
-	# Extract dictionary from json
-	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path("original_data/jmdict-eng-3.6.1.zip"))
-	logging.info("Extracted jmdict from zipped json.")
-
-	# Extract JLPT-by-level from .csv(s)
-	df = extract_jlpt_csvs_from_folder(Path("original_data"))
-	logging.info("Extracted JLPT words from csvs.")
-
-	# Extract any existing wanikani audio files
-	wani_audio = extract_saved_wanikani_audio(Path("original_data", "wanikani"))
-	logging.info("Extracted existing wanikani audio.")
-
-	return df, jmdict, jmdict_tags_mapping, wani_audio
 
 ####################
 ## The pipeline
