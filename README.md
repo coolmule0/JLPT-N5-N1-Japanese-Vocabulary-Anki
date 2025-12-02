@@ -45,6 +45,14 @@ As I reached the end of Genki I wanted to continue the strong structured learnin
 
 I figured a JLPT-based deck of a few thousand cards could be created programatically. I took lists of vocab within the JLTP, joined it with vocab word information, and made a programmable pipeline to be able to handle the thousands of flashcards that are needed for mastering the Japanese language.
 
+I use these generated decks for my own vocabulary study, and aim to keep it up-to-date and relevant for both myself and others who use it.
+
+## Further ideas
+
+There's always more I want to be doing with this. If you have some ideas you would like to see, drop a github issue, or Anki review.
+
+An example extention idea is using one of the alternative JMDict language downloads. It isn't just english, containing multiple different languages. Can use the non-english meanings create a German-Japanese (say) language deck. 
+
 # Misc
 
 ## Data sources
