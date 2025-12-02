@@ -84,12 +84,9 @@ uv.lock
 
 .vscode
 
-# The jmdict dictionary
-jmdict*.json
-
 wanikani_token
 
 # Original data should be manually included
-original_data
+original_data/*
 !original_data/n*.csv
-!original_data/jmdict-*.zip
+!original_data/jmdict-eng-3.6.1.zip
