@@ -26,6 +26,11 @@ def download_wanikani_vocab() -> (pd.DataFrame):
 		with open("wanikani_token", "r") as f:
 			token = f.read()[:-1] # ignore newline
 		
+		if len(token) < 1:
+			logging.debug("No debug token found.")
+			return pd.DataFrame()
+
+		
 		url = "https://api.wanikani.com/v2/subjects"
 		headers = {
 			"Authorization": f"Bearer {token}"

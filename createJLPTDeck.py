@@ -391,11 +391,16 @@ def load(df: pd.DataFrame) -> None:
 	df.to_csv(csv_path, index=False)
 
 	# Store the info into an anki deck
-	package = AnkiPackage("extended")
-	# Add a new note for each row/word
-	df.apply(lambda x: package.add_note(x, x["jlpt_level"]), axis=1)
+	deck_types = ["core", "extended"]
+	for dt in deck_types:
+		package = AnkiPackage(dt)
+		# Add a new note for each row/word
+		for _, row in df.iterrows():
+			package.add_note(row, row["jlpt_level"])
 
-	package.save_to_folder(Path("output"))
+		package.save_to_folder(Path("output"))
+
+		logging.debug(f"Cards per deck: {package.get_cards_in_deck()}")
 
 def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]:
 	# Extract dictionary from json

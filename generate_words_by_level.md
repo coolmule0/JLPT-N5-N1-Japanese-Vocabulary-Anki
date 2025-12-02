@@ -1,6 +1,6 @@
 # [x] search jisho by word - whats returned?
 
-# [x]Archaic definitions to ignore? 
+# [x] archaic definitions to ignore? 
 
 # [x] consistent words from anki
 
@@ -9,23 +9,26 @@ Jisho.org scrape for words
 other anki lists, take their words
 wanikani api
 
+# [x] clear install/requirements instructions
+
+# [ ] Add number of cards per deck in description
+Both in this readme and on ankiweb.
+
+# [ ] Make the raw csv/.apkg files available for download
+On github releases
+
+# [ ] Bug: Can have a kanji usually_kana and an purely kana word both in the deck. As cards these look kinda like repeats. Consider removing in some capacity.
+
+# [x] Tests
+Usually kana tag has reading in kana form
+BUG: ７日 [noka]?! Should be nanoka. Also ９日. The first kana has disappeared.
+
 # [ ] example sentences
 Probably from Tatoeba 
 
 # [ ] additional grammar
 
-# [ ] clear install/requirements instructions
-
-# [ ] Add number of cards per deck in description
-
-# [ ] Make the raw csv/.apkg files available for download
-
-# Bug: Can have a kanji usually_kana and an purely kana word both in the deck. As cards these look kinda like repeats. Consider removing in some capacity.
-
-# Tests
-Usually kana tag has reading in kana form
-BUG: ７日 [noka]?! Should be nanoka. Also ９日. The first kana has disappeared.
-
+# [ ] common cards
 
 JLPT Resources to consider
 Wanikani
