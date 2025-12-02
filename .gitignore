@@ -89,4 +89,4 @@ wanikani_token
 # Original data should be manually included
 original_data/*
 !original_data/n*.csv
-!original_data/jmdict-eng-3.6.1.zip
+!original_data/jmdict-*.zip
