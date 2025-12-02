@@ -368,46 +368,47 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 	return rdf
 
 def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
+	df = df.copy()
 
-    # Identify rows
-    has_kanji_and_usually_kana = df["kanji"].ne("") & df["tags"].apply(lambda t: "usually_kana" in t)
-    blank_kanji = df["kanji"].eq("")
+	# Identify rows
+	has_kanji_and_usually_kana = df["kanji"].ne("") & df["tags"].apply(lambda t: "usually_kana" in t)
+	blank_kanji = df["kanji"].eq("")
 
 	# JLPT difficulty ranking (lower number = easier)
-    jlpt_rank = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5}
+	jlpt_rank = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5}
 
-    # Helper to get rank, unknown levels get a high rank (hardest)
-    def get_rank(level):
-        return jlpt_rank.get(level, 99)
+	# Helper to get rank, unknown levels get a high rank (hardest)
+	def get_rank(level):
+		return jlpt_rank.get(level, 99)
 
-    # To drop
-    drop_indices = []
+	# To drop
+	drop_indices = []
 
-    # Group by reading
-    for reading, group in df.groupby("reading"):
-        idx_usually = group.index[has_kanji_and_usually_kana.loc[group.index]]
-        idx_blank = group.index[blank_kanji.loc[group.index]]
+	# Group by reading
+	for reading, group in df.groupby("reading"):
+		idx_usually = group.index[has_kanji_and_usually_kana.loc[group.index]]
+		idx_blank = group.index[blank_kanji.loc[group.index]]
 
-        # Only act if both types are present
-        if len(idx_usually) > 0 and len(idx_blank) > 0:
-            for i1 in idx_usually:
-                for i2 in idx_blank:
-                    # Compare JLPT levels
-                    rank1 = get_rank(df.at[i1, "jlpt_level"])
-                    rank2 = get_rank(df.at[i2, "jlpt_level"])
-					
-                    if rank1 > rank2:
-                        # i1 is harder, drop it
-                        drop_indices.append(i1)
-                    elif rank2 > rank1:
-                        # i2 is harder, drop it
-                        drop_indices.append(i2)
-                    else:
-                        # Tie or unknown — drop higher index as fallback
-                        drop_indices.append(max(i1, i2))
-    # Return df with the designated rows dropped
-    return df.drop(index=set(drop_indices))
+		# Only act if both types are present
+		if len(idx_usually) > 0 and len(idx_blank) > 0:
+			for i1 in idx_usually:
+				for i2 in idx_blank:
+					# Compare JLPT levels
+					rank1 = get_rank(df.at[i1, "jlpt_level"])
+					rank2 = get_rank(df.at[i2, "jlpt_level"])
+
+					if rank1 > rank2:
+						# i1 is harder, drop it
+						drop_indices.append(i1)
+					elif rank2 > rank1:
+						# i2 is harder, drop it
+						drop_indices.append(i2)
+					else:
+						# Tie or unknown — drop higher index as fallback
+						drop_indices.append(max(i1, i2))
+	print(drop_indices)
+	# Return df with the designated rows dropped
+	return df.drop(index=set(drop_indices))
 
 def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
@@ -421,7 +422,7 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 
 	rdf = prepare_word_record(rdf, jmdict_tags_mapping)
 
-	# drop 
+	# drop edge cases of competing reading rows that have multiple entries, where some have only kanji but usually kana and some are only kana
 	rdf = drop_equivalent_rows(rdf)
 
 	# Add audio to the df
