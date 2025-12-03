@@ -1,3 +1,9 @@
+"""Japanese Vocabulary Flashcard Generator
+
+This script creates an anki-ready .apkg file for import into the Anki software. The .apkg file contains vocabulary cards ordered by JLPT difficulty.
+Uses the information stored in the csvs about words/jlpt-level, and the jmdict dictionary to create information-rich words for study.
+"""
+
 import json
 import os
 import re
@@ -10,18 +16,24 @@ import pandas as pd
 from jlpt_anki import AnkiPackage
 from wanikani_audio import download_missing_wanikani_audio
 
-"""
-Uses the information stored in the csvs about words/jlpt-level, and the jmdict dictionary to create information-rich words for study.
-"""
-
-def setup() -> None:
-	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
-
-
 ####################
 ## Extract/load data from files
 
 def extract_jlpt_csvs_from_folder(folder_path: Path) -> pd.DataFrame:
+	"""Coalate all the lines together from files called n5.csv, n2.csv etc.
+
+	The csv should have the following columns: jmdict_seq,kana,kanji,waller_definition
+
+	Parameters
+	----------
+	folder_path : Path
+		Location holding files entitled n5.csv, n4.csv ... n1.csv
+
+	Returns
+	-------
+	pd.DataFrame
+		japanese vocabulary per row, including jlpt level information per word
+	"""
 	dfs = []
 	
 	for level in ["n5", "n4", "n3", "n2", "n1"]:
@@ -37,11 +49,24 @@ def extract_jlpt_csvs_from_folder(folder_path: Path) -> pd.DataFrame:
 	return merged_df
 
 def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str, str]]:
-	"""
-	Unzip and load up the jmdictionary in zipped json format.
+	"""Unzip and extract the jm_dictionary in zipped json format.
 
-	Returns: tuple: dictionary in dataframe form, and the tags mapping their occurence in the dictionary to a more verbose explanation
+	Parameters
+	----------
+	jmdict_zip_file : Path
+		location of the jmdict file zip. Within the zip is just the .json version of the dictionary
+
+	Returns
+	-------
+	tuple[pd.DataFrame, dict[str, str]]
+		DataFrame version of the dictionary, and a mapping of the tags used in the dictionary to a more verbose human-understandable explanation
+
+	Raises
+	------
+	ValueError
+		Zip file should contain only one file within - the json formatted dictionary.
 	"""
+
 	# extraction folder is same place as zip (e.g., "data.zip" → "data")
 	# extract_dir = os.path.splitext(jmdict_zip_file)[0]
 	unzip_file = jmdict_zip_file.with_suffix(".json")
@@ -79,10 +104,19 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str,
 	return (jmdict, jmdict_tags_mapping)
 
 def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
-	"""
-	check what audio files already exist.
+	"""Check what audio files already exist.
 
-	Should be named with as an interger.ext e.g. 13456744.mp3, where the integer corresponds to the jmdict entry for the word
+	Should be named with as a "interger.ext" e.g. 13456744.mp3, where the integer corresponds to the jmdict entry for the word
+
+	Parameters
+	----------
+	audio_folder : Path
+		Folder to search within for audio.
+
+	Returns
+	-------
+	pd.DataFrame
+		A row for each existing audio file.
 	"""
 
 	audio_files_dicts = []
@@ -96,6 +130,14 @@ def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
 	return pd.DataFrame(audio_files_dicts)
 
 def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]:
+	"""Extract data from sources.
+
+	Returns
+	-------
+	tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
+		The various data sources.
+	"""
+
 	# Extract dictionary from json
 	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path("original_data/jmdict-eng-3.6.1.zip"))
 	logging.info("Extracted jmdict from zipped json.")
@@ -113,10 +155,25 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
 ####################
 ## Transform helpers
 
-def extract_addition_engl(entry: pd.DataFrame) -> list[list[str]]:
+def find_addition_engl(entry: pd.DataFrame) -> list[list[str]]:
+	"""Read from the dictionary columns further english definitions of the word
+
+	A word can have multiple different meanings beyond the primary.
+	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns "the *something* river".
+
+	Parameters
+	----------
+	entry : pd.DataFrame
+		An entry from the jmdict for a given word/id
+
+	Returns
+	-------
+	list[list[str]]
+		English meanings for the word. Each inner list are related entries. Each outer list are distinct entries.
+		For example "read" in the dictionary has outer entries for the past tense, for the present tense.
+		And it has multiple inner entries for each outer entry, such as [to look at words, to say the words]
 	"""
-	Extract all the additional definitions for the word from the dictionary
-	"""
+
 	adds = []
 	# Every sense after the first
 	for i in entry["sense"].iloc[0][1:]:
@@ -137,14 +194,19 @@ def extract_addition_engl(entry: pd.DataFrame) -> list[list[str]]:
 def make_furigana(kanji: str, kana: str) -> str:
 	"""Generate a furigana word from associated kanji and kana. Is able to handle words with kana between the kanji.
 
-	E.g. (掃除する, そうじする) becomes 掃除[そうじ]する
+	Parameters
+	----------
+	kanji : str
+		Kanji of the word (can include kana as well)
+	kana : str
+		(hira/kata)kana of the word
 
-	Args:
-					kanji (string): Kanji of the word (can include kana as well).
-					kana (string): Kana of the word
-	Returns:
-					string: Kanji word with furigana
+	Returns
+	-------
+	str
+		Kanji word with furigana
 	"""
+
 	if not kana:
 		assert False, "No kana reading provided."
 		return
@@ -207,17 +269,23 @@ def make_furigana(kanji: str, kana: str) -> str:
 	return outWord.strip()
 
 def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defns: list[str]) -> list[str]:
-	"""
-	Grabs all the additional english definitions of the word. 
-	
-	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns "the *something* river".
+	"""Limit the additional english definitions obtained to parameters. 
 
-	Remove duplicate entries.
-	Limits total entries to not have too much info.
+	Remove duplicate entries. Limit total entries to not have too much info.
 
-	Returns:
-					string: comma separated additional english definitions
+	Parameters
+	----------
+	additional_lst : list[list[str]]
+		The additional definitions of the word in English
+	primary_eng_defns : list[str]
+		The primary English definitions of the word
+
+	Returns
+	-------
+	list[str]
+		The additional english definitions for the word
 	"""
+
 	letter_limit = 200 # How many letters to limit the return string
 	first_defs = set(defn.lower() for defn in primary_eng_defns)
 	
@@ -249,6 +317,19 @@ def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defn
 ## Transforms
 
 def clean(df: pd.DataFrame) -> pd.DataFrame:
+	"""Fix issues in the source data before transforming.
+
+	Parameters
+	----------
+	df : pd.DataFrame
+		The dataframe with a row per Japanese word
+
+	Returns
+	-------
+	pd.DataFrame
+		Cleaned dataframe
+	"""
+
 	rdf = df.copy()
 	rdf = rdf.dropna(subset=["jmdict_seq"]).copy()  # Drop any rows with NaN values
 	rdf["jmdict_seq"] = rdf["jmdict_seq"].astype(int) # convert from floats to ints
@@ -265,9 +346,21 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 	return rdf
 
 def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict[str, str|list[str]]:
+	"""Look up the information about a given entry in the JMDict
+
+	Parameters
+	----------
+	dict_id : int
+		id of japanese word in the JMDict
+	jmdict : pd.DataFrame
+		the jmdict in json form (https://github.com/scriptin/jmdict-simplified/) imported as a pandas dataframe
+
+	Returns
+	-------
+	dict[str, str|list[str]]
+		JMDict information for the word
 	"""
-	Using the jmdict in json form (https://github.com/scriptin/jmdict-simplified/) imported as a pandas dataframe.
-	"""
+
 	entry = jmdict[jmdict["id"] == dict_id]
 	if len(entry) < 1:
 		logging.error(f"Not found {dict_id}")
@@ -279,7 +372,7 @@ def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict[str, str|list[str]]:
 	kanji = entry["kanji"].iloc[0][0]["text"] if len(entry["kanji"].iloc[0])  > 0 else ""
 	kana = entry["kana"].iloc[0][0]["text"] if len(entry["kana"].iloc[0])  > 0 else ""
 
-	additional = extract_addition_engl(entry)
+	additional = find_addition_engl(entry)
 			
 	newdict = {
 		# "expression": entry.kanji_forms[0],
@@ -294,8 +387,19 @@ def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict[str, str|list[str]]:
 	# expression,reading,english_definition,grammar,additional,tags,japanese_reading
 
 def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -> pd.DataFrame:
-	"""
-	Use the dictionary information to construct meaningful columns
+	"""Enhance the dataframe information to have vocab-study-ready columns
+
+	Parameters
+	----------
+	df : pd.DataFrame
+		Dictionary-enriched, one row per japanese vocabulary word
+	jmdict_tags_mapping : dict[str, str]
+		mapping of JMDict abbreviations and their human-understandable extention (such as 'n' for noun)
+
+	Returns
+	-------
+	pd.DataFrame
+		Extended dataframe containing columns suitable for anki flashcards
 	"""
 	rdf = df.copy()
 	rdf["english_definition"] = rdf["english_definition"].str.join(', ')
@@ -330,20 +434,20 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -
 
 	return rdf
 
-def append_audio(main_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame:
-	"""
-	Join audio to the list
-	"""
-	rdf = main_df.merge(
-		audio_df,
-		on="jmdict_seq",
-		how="left",
-	)
-
-	return rdf
-
 
 def finalise(df: pd.DataFrame) -> pd.DataFrame:
+	"""Drop and finishing touches to the dataframe
+
+	Parameters
+	----------
+	df : pd.DataFrame
+		one row per japanese word, still containing extraneous columns not needed for anki decks
+
+	Returns
+	-------
+	pd.DataFrame
+		one row per japanese word, fully transformed
+	"""
 	rdf = df.copy()
 
 	# Column name tidy
@@ -368,6 +472,22 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 	return rdf
 
 def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
+	"""Remove words that might pop up twice in Anki yet look like almost the same word. These two words have distinct entries in JMDict
+
+	For example, こと and 事(pronouced こと) (usually kana) have very similar meanings, have the same entry in the flashcard due to both being written in kana.
+	One should be removed to avoid similar/repeat entries in the flashcards.
+	Keeps the one that is labeled as the easier grade.
+
+	Parameters
+	----------
+	df : pd.DataFrame
+		You know it by now. One row per vocab word
+
+	Returns
+	-------
+	pd.DataFrame
+		Reduced, removing any potential multiples following the specified rule.
+	"""
 	df = df.copy()
 
 	# Identify rows
@@ -375,11 +495,7 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 	blank_kanji = df["kanji"].eq("")
 
 	# JLPT difficulty ranking (lower number = easier)
-	jlpt_rank = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5}
-
-	# Helper to get rank, unknown levels get a high rank (hardest)
-	def get_rank(level):
-		return jlpt_rank.get(level, 99)
+	jlpt_rank = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5, "common": 6}
 
 	# To drop
 	drop_indices = []
@@ -394,8 +510,8 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 			for i1 in idx_usually:
 				for i2 in idx_blank:
 					# Compare JLPT levels
-					rank1 = get_rank(df.at[i1, "jlpt_level"])
-					rank2 = get_rank(df.at[i2, "jlpt_level"])
+					rank1 = jlpt_rank[df.at[i1, "jlpt_level"]]
+					rank2 = jlpt_rank[df.at[i2, "jlpt_level"]]
 
 					if rank1 > rank2:
 						# i1 is harder, drop it
@@ -411,6 +527,24 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 	return df.drop(index=set(drop_indices))
 
 def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame) -> pd.DataFrame:
+	"""Transform the extracted data, ready for loading.
+
+	Parameters
+	----------
+	df : pd.DataFrame
+		jlpt-graded and jmdict entry column'ed dataframe
+	jmdict : pd.DataFrame
+		Dictionary
+	jmdict_tags_mapping : dict[str, str]
+		dictionary abbr tags to human explained
+	wani_audio : pd.DataFrame
+		columns with corresponding jmdict entry, and path saved at
+
+	Returns
+	-------
+	pd.DataFrame
+		Load-ready
+	"""
 	rdf = df.copy()
 
 	rdf = clean(rdf)
@@ -426,7 +560,12 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 	rdf = drop_equivalent_rows(rdf)
 
 	# Add audio to the df
-	rdf = append_audio(rdf, wani_audio)
+	rdf = rdf.merge(
+		wani_audio,
+		on="jmdict_seq",
+		how="left",
+	)
+
 	# Download and add missing audio
 	rdf = download_missing_wanikani_audio(rdf, wani_audio)
 
@@ -439,8 +578,14 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 ## Ready the words for export/Anki
 
 def load(df: pd.DataFrame) -> None:
-	"""
-	Converts it to Anki data
+	"""Load the information to saved formats.
+
+	Saves to .apkg and .csv files
+
+	Parameters
+	----------
+	df : pd.DataFrame
+		Containing all the important information needed for saving to anki formats
 	"""
 	# Save to csv file
 	csv_path = Path("output", "full.csv")
@@ -463,7 +608,10 @@ def load(df: pd.DataFrame) -> None:
 ####################
 ## The pipeline
 def run() -> None:
-	setup()
+	"""The main extract-transform-load (ETL) loop"""
+
+	# Set logging level
+	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
 	logging.info("Extracting info from files...")
 	df, jmdict, jmdict_tags_mapping, wani_audio = extract()

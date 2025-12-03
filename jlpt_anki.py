@@ -1,3 +1,8 @@
+""" For creating Anki packages, formatted in a way useful for JLPT studies. Includes methods for manipulating and enhancing the anki packages and decks.
+
+Creates an anki package (group of decks) in the nested structure common::N1::N2...::N5. I.e. N5 is a subdeck of N4, which is a subdeck of N3...
+"""
+
 import random
 import re
 import math
@@ -8,16 +13,10 @@ import logging
 import pandas as pd
 import genanki
 
-"""
-Creates a structured dataframe table and converts it into an Anki deck data structure. Ready for import into Anki as an apkg file.
-
-Creates an anki package (group of decks) in the nested structure common::N1::N2...::N5. I.e. N5 is a subdeck of N4, which is a subdeck of N3...
-"""
-
 #############
 ## Anki Models
 
-# The core anki model (card layout, expected entries, and flashcard appearance)
+"""The core anki model (card layout, expected entries, and flashcard appearance). """
 model_core = genanki.Model(
 	2125329068, # random.randrange(1 << 30, 1 << 31), a fixed number for each model
 	"Core Japanese Vocabulary",
@@ -43,7 +42,7 @@ model_core = genanki.Model(
 	css=open("card_style/style.css", "r").read(),
 )
 
-# Alternative version for including audio. Includes extra field and different templates
+""" Alternative version for including audio. Includes extra field and different templates. """
 model_audio = genanki.Model(
 	1291263575,
 	"Core Japanese Vocabulary Extended",
@@ -71,10 +70,15 @@ model_audio = genanki.Model(
 )
 
 class AnkiPackage:
-	"""
-	
-	"""
+	"""JLPT Anki Package, made up of ordered decks."""
 	def __init__(self, type: Literal["core", "extended"] = "core") -> None:		# entend the information if using extended (media sound) deck
+		"""Initialize according to which type of anki package to create.
+
+		Parameters
+		----------
+		type : Literal, optional
+			The type of package to generate, by default "core"
+		"""
 		if type == "core":
 			self.audio = False
 			self.model = model_core
@@ -89,9 +93,7 @@ class AnkiPackage:
 		self.init_decks()
 
 	def init_decks(self) -> None:
-		"""
-		Create multiple nested decks -> common:N5::N4::N3 etc
-		"""
+		""" Create multiple nested decks -> common:N5::N4::N3 etc. """
 		# Construct names
 		deck_names = []
 		deck_layer_names = [
@@ -117,8 +119,17 @@ class AnkiPackage:
 		self.decks = decks
 	
 	def get_deck(self, deck_name: str) -> genanki.Deck:
-		"""
-		Get the anki deck associated with the deck_name
+		""" Get the anki deck associated with the deck_name
+
+		Parameters
+		----------
+		deck_name : str
+			name of the deck, using the jlpt grade
+
+		Returns
+		-------
+		genanki.Deck
+			The deck associated with that name
 		"""
 		deck_mapping = {
 			"N5": 5,
@@ -130,8 +141,14 @@ class AnkiPackage:
 		return self.decks[deck_mapping[deck_name]]
 
 	def add_note(self, note: pd.Series, deck_name: str) -> None:
-		"""
-		Create and adds a note to the revelant deck by searching its containing tags
+		""" Create and adds a note to the revelant deck by searching its containing tags.
+
+		Parameters
+		----------
+		note : pd.Series
+			A vocabulary word. Should contain all the expected fields
+		deck_name : str
+			The name of the deck to insert this card into
 		"""
 		# Ignore possible repeated entries
 		if note["expression"] in self.entries:
@@ -168,8 +185,14 @@ class AnkiPackage:
 		self.entries.append(note["expression"])
 
 	def save_to_folder(self, folder_path: Path) -> None:
-		"""
-		Creates an apkg file of the combined info
+		""" Create an apkg file of the combined info.
+
+		The filename itself is specified according to its type.
+
+		Parameters
+		----------
+		folder_path : Path
+			Folder to save .apkg file
 		"""
 		# package the decks together
 		p_name = "Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary"
@@ -181,5 +204,12 @@ class AnkiPackage:
 			package.media_files = self.audio_paths
 		package.write_to_file(filename)
 	
-	def get_cards_in_deck(self) -> list[int]:
+	def get_cards_in_deck(self) -> dict[str, int]:
+		""" Get the number of notes within the decks
+
+		Returns
+		-------
+		dict[str, int]
+			How many notes for each deck name
+		"""
 		return {d.name: len(d.notes) for d in self.decks}

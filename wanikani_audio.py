@@ -1,3 +1,4 @@
+""" Handle the downloading of audio files from wanikani, and processing of local audio files."""
 import logging
 import time
 from pathlib import Path
@@ -7,14 +8,18 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
-"""
-Handle the downloading of audio files from wanikani
-"""
 
-def download_wanikani_vocab() -> (pd.DataFrame):
+def download_wanikani_vocab() -> pd.DataFrame:
+	"""Query Wanikani for available vocabulary audio
+
+	Skips any internet queries if the cache file is present. To force an update (e.g. if Wanikani has updated their audio) delete this cache file.
+
+	Returns
+	-------
+	pd.DataFrame
+		A row per vocab entry with a corresponding column for the url
 	"""
-	Returns: vocab entries and the audio download info
-	"""
+
 	wanikani_cache_path = Path(".cache", "wanikani_vocab.json")
 
 	# Assume the cache file existing means the data is already present and up to date
@@ -75,9 +80,19 @@ def download_wanikani_vocab() -> (pd.DataFrame):
 
 
 def parse_entry(data: dict) -> tuple[dict, list]:
+	"""Parse the json data return from a wanikani query into vocab data, and audio file download data.
+
+	Parameters
+	----------
+	data : dict
+		An entry for a word
+
+	Returns
+	-------
+	tuple[dict, list]
+		The wanikani vocab information for the word, and pronunciation information
 	"""
-	Parse the json data return from a wanikani query into vocab data, and audio file download data
-	"""
+
 	d = {
 		"slug": data["slug"],
 		"reading_kana": data["characters"],
@@ -94,6 +109,20 @@ def parse_entry(data: dict) -> tuple[dict, list]:
 
 
 def download_wanikani_audio_url(url: str, filename: str) -> Path:
+	"""Download audio from the provided url and save it
+
+	Parameters
+	----------
+	url : str
+		url path for audio file
+	filename : str
+		Name to save audio file as (without extention)
+
+	Returns
+	-------
+	Path
+		Location of the saved file
+	"""
 	response = requests.get(url)
 	response.raise_for_status()
 
@@ -125,10 +154,19 @@ def download_wanikani_audio_url(url: str, filename: str) -> Path:
 
 
 def download_missing_wanikani_audio(df: pd.DataFrame, wani_audio: pd.DataFrame) -> pd.DataFrame:
-	"""
-	df: with audio paths as a column, filled for entries already existing
+	"""_summary_
 
-	returns: updated main df with the newly downloaded files also included
+	Parameters
+	----------
+	df : pd.DataFrame
+		with audio paths as a column, filled for entries already existing
+	wani_audio : pd.DataFrame
+		currently downloaded audio
+
+	Returns
+	-------
+	pd.DataFrame
+		updated main df with the newly downloaded files also included
 	"""
 	rdf = df.copy()
 	df_entries = download_wanikani_vocab()

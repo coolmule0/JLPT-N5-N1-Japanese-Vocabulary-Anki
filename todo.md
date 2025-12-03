@@ -17,7 +17,7 @@ Both in this readme and on ankiweb.
 # [ ] Make the raw csv/.apkg files available for download
 On github releases
 
-# [ ] Bug: Can have a kanji usually_kana and an purely kana word both in the deck. As cards these look kinda like repeats. Consider removing in some capacity.
+# [x] Bug: Can have a kanji usually_kana and an purely kana word both in the deck. As cards these look kinda like repeats. Consider removing in some capacity.
 
 # [x] Tests
 
