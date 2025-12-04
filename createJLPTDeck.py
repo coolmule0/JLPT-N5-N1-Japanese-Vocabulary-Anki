@@ -428,7 +428,7 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -
 	rdf["rare"] = rdf["misc"].apply(lambda lst: ["rare_term" for x in lst if x in ["rare"]])
 
 	rdf["tags"] = rdf.apply( lambda x: "usually_kana" if x["usually_kana"] else  "", axis = 1)
-	rdf["tags"] = rdf.apply( lambda x: x["formality"] + [x["tags"]] + x["rare"], axis=1)
+	rdf["tags"] = rdf.apply( lambda x: x["formality"] + [x["tags"]] + x["rare"] + [f"jlpt_{x['jlpt_level']}"], axis=1)
 	
 	rdf["expression"] = df.apply(lambda x: x["reading_kanji"] if x["reading_kanji"] != "" else x["reading_kana"], axis=1)
 
@@ -460,7 +460,6 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 	assert required_cols.issubset(rdf.columns), f"Missing columns: {required_cols - set(rdf.columns)}"
 
 	# Shuffle the rows
-	# rdf = rdf.sample(frac=1).reset_index(drop=True)
 	rdf = (
 	rdf.groupby('jlpt_level', group_keys=True)
 				.sample(frac=1, random_state=42)

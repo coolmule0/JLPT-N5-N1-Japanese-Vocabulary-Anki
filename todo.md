@@ -18,10 +18,12 @@ Both in this readme and on ankiweb.
 On github releases
 
 # [x] Bug: Can have a kanji usually_kana and an purely kana word both in the deck. As cards these look kinda like repeats. Consider removing in some capacity.
+yoi and ii/good audio pronunciation differences.
 
 # [x] Tests
 
 # [ ] common vocab
+Do i really want it still? Do other people?
 
 # [ ] example sentences
 Probably from Tatoeba 

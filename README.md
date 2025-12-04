@@ -69,12 +69,11 @@ Audio is scraped from Wanikani. It requires a user-provided auth token in a `wan
 
 The increasing vocabulary structure of JLPT lends itself well to a simple heirarchy:
 
-- common
-	- JLPT N1 (3056 cards)
-		- JLPT N2 (1724 cards)
-			- JLPT N3 (1591 cards)
-				- JLPT N4 (613 cards)
-					- JLPT N5 (625 cards)
+- JLPT N1 (3056 cards)
+	- JLPT N2 (1724 cards)
+		- JLPT N3 (1591 cards)
+			- JLPT N4 (613 cards)
+				- JLPT N5 (625 cards)
 
 With N5 as the easiest, and N1 being the hardest. This structure means every grade below it is also included in the review list. So studying N3 also includes the vocabulary studied for N4 and N5.
 
