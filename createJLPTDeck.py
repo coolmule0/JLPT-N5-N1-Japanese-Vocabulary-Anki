@@ -147,7 +147,9 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
 	logging.info("Extracted JLPT words from csvs.")
 
 	# Extract any existing wanikani audio files
-	wani_audio = extract_saved_wanikani_audio(Path("original_data", "wanikani"))
+	wani_audio_path = Path("original_data", "wanikani")
+	wani_audio_path.mkdir(parents=True, exist_ok=True)
+	wani_audio = extract_saved_wanikani_audio(wani_audio_path)
 	logging.info("Extracted existing wanikani audio.")
 
 	return df, jmdict, jmdict_tags_mapping, wani_audio
