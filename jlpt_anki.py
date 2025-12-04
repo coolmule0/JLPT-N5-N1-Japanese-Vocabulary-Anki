@@ -98,7 +98,7 @@ class AnkiPackage:
 		deck_names = []
 		deck_layer_names = [
 			"Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary",
-			"JLPT N1",
+			# "JLPT N1",
 			"JLPT N2",
 			"JLPT N3",
 			"JLPT N4",
@@ -132,11 +132,12 @@ class AnkiPackage:
 			The deck associated with that name
 		"""
 		deck_mapping = {
-			"N5": 5,
-			"N4": 4,
-			"N3": 3,
-			"N2": 2,
-			"N1": 1,
+			"N5": 4,
+			"N4": 3,
+			"N3": 2,
+			"N2": 1,
+			"N1": 0,
+			# "common": 0,
 		}
 		return self.decks[deck_mapping[deck_name]]
 
