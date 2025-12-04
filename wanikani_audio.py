@@ -3,6 +3,7 @@ import logging
 import time
 from pathlib import Path
 import json
+import re
 
 import pandas as pd
 import requests
@@ -100,9 +101,9 @@ def parse_entry(data: dict) -> tuple[dict, list]:
 
 	d = {
 		"slug": data["slug"],
-		"reading_kana": data["characters"],
+		"reading_kanji": data["characters"],
 		# "meaning": data["meanings"][0]["meaning"],
-		"reading_kanji": data["readings"][0]["reading"],
+		"reading_kana": data["readings"][0]["reading"],
 	}
 
 	prons = []
@@ -113,7 +114,7 @@ def parse_entry(data: dict) -> tuple[dict, list]:
 	return d, prons
 
 
-def download_wanikani_audio_url(url: str, filename: str) -> Path:
+def download_wanikani_audio_url(url: str, saved_filename: str) -> Path:
 	"""Download audio from the provided url and save it
 
 	Parameters
@@ -150,7 +151,7 @@ def download_wanikani_audio_url(url: str, filename: str) -> Path:
 			if filename_match:
 				filename = unquote(filename_match.group(1))
 	filename_path = Path("original_data", "wanikani", filename)
-	filename_path = filename_path.with_name(f"{filename}{filename_path.suffix}")
+	filename_path = filename_path.with_name(f"{saved_filename}{filename_path.suffix}")
 
 	with open(filename_path, 'wb') as f:
 		for chunk in response.iter_content(chunk_size=8192):
@@ -192,7 +193,7 @@ def download_missing_wanikani_audio(df: pd.DataFrame, wani_audio: pd.DataFrame) 
 		for _, row in tqdm(df_available.iterrows(), total=df_available.shape[0]):
 			filename_path = download_wanikani_audio_url(row["url"], row["jmdict_seq"])
 			
-			rdf[rdf[jmdict_seq] == row["jmdict_seq"]]["wani_audio_path"] = filename_path
+			rdf[rdf["jmdict_seq"] == row["jmdict_seq"]]["wani_audio_path"] = filename_path
 
 			# Don't hit the servers too much
 			time.sleep(1)
