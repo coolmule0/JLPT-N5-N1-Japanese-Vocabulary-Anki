@@ -466,7 +466,7 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 				.reset_index(drop=True)
 	)
 	# Rearrange columns
-	rdf = rdf[["jlpt_level", "expression", "english_definition", "reading", "grammar", "additional", "tags", "wani_audio_path"]]
+	rdf = rdf[["jlpt_level", "jmdict_seq", "expression", "english_definition", "reading", "grammar", "additional", "tags", "wani_audio_path"]]
 
 	return rdf
 

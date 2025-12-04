@@ -174,6 +174,7 @@ def download_missing_wanikani_audio(df: pd.DataFrame, wani_audio: pd.DataFrame) 
 	# only interested in entries that don't have vocab already locally downloaded
 	df_no_audio = rdf[rdf["wani_audio_path"].isna()]
 
+	# Assume words match when sharing both kanji and kana between wanikani and the jmdict
 	dff = df_no_audio.merge(
 		df_entries,
 		on=['reading_kanji', "reading_kana"],

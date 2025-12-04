@@ -77,7 +77,7 @@ The increasing vocabulary structure of JLPT lends itself well to a simple heirar
 
 With N5 as the easiest, and N1 being the hardest. This structure means every grade below it is also included in the review list. So studying N3 also includes the vocabulary studied for N4 and N5.
 
-To achieve this in Anki start by creating an empty deck of the above form. The quickest way to do this is create a new deck called `Core Japanese Vocabulary::JLPT N1::JLPT N2::JLPT N3::JLPT N4::JLPT N5`. The "::" in Anki means subdeck.
+To achieve this in Anki start by creating an empty deck of the above form. The quickest way to do this is create a new deck called `Core Japanese Vocabulary::JLPT N2::JLPT N3::JLPT N4::JLPT N5`. The "::" in Anki means subdeck.
 
 ### Card layout
 
