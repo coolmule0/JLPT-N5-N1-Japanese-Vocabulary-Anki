@@ -45,7 +45,7 @@ As I reached the end of Genki I wanted to continue the strong structured learnin
 
 I figured a JLPT-based deck of a few thousand cards could be created programatically. I took lists of vocab within the JLTP, joined it with vocab word information, and made a programmable pipeline to be able to handle the thousands of flashcards that are needed for mastering the Japanese language.
 
-I use these generated decks for my own vocabulary study, and aim to keep it up-to-date and relevant for both myself and others who use it.
+I use these generated decks for my own vocabulary study, and aim to keep it up-to-date and relevant for both myself and others who use it. I want something focused - just JLPT, and to do it well. To be a correct and up-to-date resource for language study.
 
 ## Further ideas
 
@@ -61,7 +61,7 @@ JLPT resources are primarily found from [Jonathan Waller‘s JLPT list](https://
 
 Japanese vocabulary information is gathered from the [JMDict, Japanese dictionary database](https://www.edrdg.org/jmwsgi/srchformq.py?svc=jmdict), a really good machine-friendly resoruce with a community helping to keep it up to date and evolving. The database is available for download. In particular, I use the unofficial json-formatted version https://github.com/scriptin/jmdict-simplified as I find json easier to parse myself. If you want to use a more up-to-date version of the dictionary. Download the json version you want from their releases, and point the `jmdict extract` function to the zip for it to use instead of the provided one.
 
-Audio is scraped from Wanikani. It requires a user-provided auth token in a `wanikani_token` file.
+Audio is scraped from Wanikani. It requires a user-provided auth token in a `wanikani_token` file. It uses their human audio samples.
 
 ## Information about the generated package
 
@@ -77,7 +77,7 @@ The increasing vocabulary structure of JLPT lends itself well to a simple heirar
 
 With N5 as the easiest, and N1 being the hardest. This structure means every grade below it is also included in the review list. So studying N3 also includes the vocabulary studied for N4 and N5.
 
-To achieve this in Anki start by creating an empty deck of the above form. The quickest way to do this is create a new deck called `Core Japanese Vocabulary::JLPT N1::JLPT N2::JLPT N3::JLPT N4::JLPT N5`. The "::" in Anki means subdeck.
+To achieve this in Anki start by creating an empty deck of the above form. The quickest way to do this is create a new deck called `Core Japanese Vocabulary::JLPT N2::JLPT N3::JLPT N4::JLPT N5`. The "::" in Anki means subdeck.
 
 ### Card layout
 

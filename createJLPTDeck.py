@@ -127,7 +127,7 @@ def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
 		}
 		audio_files_dicts.append(audio_file_dict)
 
-	return pd.DataFrame(audio_files_dicts)
+	return pd.DataFrame(audio_files_dicts, columns=["wani_audio_path", "jmdict_seq"])
 
 def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]:
 	"""Extract data from sources.
@@ -147,7 +147,9 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
 	logging.info("Extracted JLPT words from csvs.")
 
 	# Extract any existing wanikani audio files
-	wani_audio = extract_saved_wanikani_audio(Path("original_data", "wanikani"))
+	wani_audio_path = Path("original_data", "wanikani")
+	wani_audio_path.mkdir(parents=True, exist_ok=True)
+	wani_audio = extract_saved_wanikani_audio(wani_audio_path)
 	logging.info("Extracted existing wanikani audio.")
 
 	return df, jmdict, jmdict_tags_mapping, wani_audio
@@ -466,7 +468,7 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 				.reset_index(drop=True)
 	)
 	# Rearrange columns
-	rdf = rdf[["jlpt_level", "expression", "english_definition", "reading", "grammar", "additional", "tags", "wani_audio_path"]]
+	rdf = rdf[["jlpt_level", "jmdict_seq", "expression", "english_definition", "reading", "grammar", "additional", "tags", "wani_audio_path"]]
 
 	return rdf
 
@@ -521,7 +523,6 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 					else:
 						# Tie or unknown — drop higher index as fallback
 						drop_indices.append(max(i1, i2))
-	print(drop_indices)
 	# Return df with the designated rows dropped
 	return df.drop(index=set(drop_indices))
 
@@ -589,6 +590,7 @@ def load(df: pd.DataFrame) -> None:
 	# Save to csv file
 	csv_path = Path("output", "full.csv")
 	logging.info(f"Saving csv to {csv_path}")
+	csv_path.parent.mkdir(parents=True, exist_ok=True)
 	df.to_csv(csv_path, index=False)
 
 	# Store the info into anki packages (made up of multiple decks)
