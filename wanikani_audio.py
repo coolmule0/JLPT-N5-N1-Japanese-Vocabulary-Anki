@@ -28,12 +28,17 @@ def download_wanikani_vocab() -> pd.DataFrame:
 			response_data = json.load(file)
 	else:
 		# get token
-		with open("wanikani_token", "r") as f:
-			token = f.read()[:-1] # ignore newline
+		wanikani_token_path = Path("wanikani_token")
+		if wanikani_token_path.is_file():
+			with open("wanikani_token", "r") as f:
+				token = f.read()[:-1] # ignore newline
+		else:
+			logging.info(f"No wanikani token found at {wanikani_token_path}, skipping audio download.")
+			return pd.DataFrame(columns=["slug", "reading_kana", "reading_kanji", "url"])
 		
 		if len(token) < 1:
 			logging.debug("No debug token found.")
-			return pd.DataFrame()
+			return pd.DataFrame(columns=["slug", "reading_kana", "reading_kanji", "url"])
 
 		
 		url = "https://api.wanikani.com/v2/subjects"
