@@ -1,6 +1,9 @@
 # Japanese Vocabulary Flashcards
 _Generating flashcards for studying for the official Japanese Language Proficiency Test (JLPT)_
 
+[![LiberaPay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/JAC5/)
+<a href='https://ko-fi.com/X8X01ODHQW' target='_blank'><img height='30' style='border:0px;height:30px;' src='https://storage.ko-fi.com/cdn/kofi2.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+
 A script for creating Vocabulary Flashcards for learning Japanese Language Vocabulary. Flashcards have a question on one side and an answer on the other. For example "川" on one side and "river" on the other side. 
 
 ![An anki card](example_images/example_anki.png)
