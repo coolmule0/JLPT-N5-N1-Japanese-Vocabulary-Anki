@@ -1,8 +1,8 @@
-# Japanese Vocabulary Flashcards
-_Generating flashcards for studying for the official Japanese Language Proficiency Test (JLPT)_
+![](example_images/jlpt_anki_logo.png)
 
-[![LiberaPay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/JAC5/)
-<a href='https://ko-fi.com/X8X01ODHQW' target='_blank'><img height='30' style='border:0px;height:30px;' src='https://storage.ko-fi.com/cdn/kofi2.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+# Japanese Vocabulary Flashcards
+
+_Generating flashcards for studying for the official Japanese Language Proficiency Test (JLPT)_
 
 A script for creating Vocabulary Flashcards for learning Japanese Language Vocabulary. Flashcards have a question on one side and an answer on the other. For example "川" on one side and "river" on the other side. 
 
@@ -115,3 +115,10 @@ Each card/vocabulary-word has various possible tags.
 |Formality | Polite, Humble, Honourific | If the word is used in a particular form of japanese speech. |
 |Archaic word | Rare | A word that is rarely used, yet still considered part of the vocabulary. |
 | Usually kana | usually_kana | Word is usually seen in kana form, though a kanji form does exist. |
+
+
+## Support
+If you've found this deck and script useful, please consider leaving a small donation of your appreciation. Every little bit helps!
+
+[![LiberaPay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/JAC5/)
+<a href='https://ko-fi.com/X8X01ODHQW' target='_blank'><img height='30' style='border:0px;height:30px;' src='https://storage.ko-fi.com/cdn/kofi2.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
