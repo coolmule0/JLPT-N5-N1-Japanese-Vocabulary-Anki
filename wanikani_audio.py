@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 import json
 import re
+from urllib.parse import unquote
 
 import pandas as pd
 import requests
@@ -11,7 +12,7 @@ from tqdm import tqdm
 
 
 def download_wanikani_vocab() -> pd.DataFrame:
-	"""Query Wanikani for available vocabulary audio
+	"""Query Wanikani for available vocabulary audio.
 
 	Skips any internet queries if the cache file is present. To force an update (e.g. if Wanikani has updated their audio) delete this cache file.
 
@@ -78,12 +79,36 @@ def download_wanikani_vocab() -> pd.DataFrame:
 	df_prons = pd.DataFrame(pron_rows)
 
 	# Join the two frames into a single. Keep just the first available audio per word
-	df_prons_first = df_prons.drop_duplicates(subset="slug", keep="first")
-	df_entries = df_entries.merge(df_prons_first[["slug", "url"]], on="slug", how="left")
+	df_prons = select_audio(df_prons)
+	# df_prons_first = df_prons.drop_duplicates(subset="slug", keep="first")
+	df_entries = df_entries.merge(df_prons[["slug", "url"]], on="slug", how="left")
 	df_entries
 
 	return df_entries
 
+def select_audio(df_prons: pd.DataFrame) -> pd.DataFrame:
+	"""Select the most relevant audio available for each vocab word
+
+	Rules: drop webm filetypes (Issues playing on iOS).
+	Pick the first available
+
+	Parameters
+	----------
+	df_prons : pd.DataFrame
+		row for each audio entry
+
+	Returns
+	-------
+	pd.DataFrame
+		row for each vocab word
+	"""
+	df = df_prons.copy()
+
+	# See if any are missing audio entirely now
+	# df.groupby("slug")["content_type"].transform(lambda s: s.eq("audio/webm").all())
+
+	df_no_webm = df[df["content_type"] != "audio/webm"]
+	return df_no_webm.drop_duplicates(subset="slug", keep="first")
 
 def parse_entry(data: dict) -> tuple[dict, list]:
 	"""Parse the json data return from a wanikani query into vocab data, and audio file download data.
@@ -190,10 +215,11 @@ def download_missing_wanikani_audio(df: pd.DataFrame, wani_audio: pd.DataFrame) 
 	df_available = dff[~dff["url"].isnull()]
 
 	if df_available.shape[0] > 0:
+		logging.info("Downloading missing audio from Wanikani...")
 		for _, row in tqdm(df_available.iterrows(), total=df_available.shape[0]):
 			filename_path = download_wanikani_audio_url(row["url"], row["jmdict_seq"])
 			
-			rdf[rdf["jmdict_seq"] == row["jmdict_seq"]]["wani_audio_path"] = filename_path
+			rdf.loc[rdf["jmdict_seq"] == row["jmdict_seq"], "wani_audio_path"] = filename_path
 
 			# Don't hit the servers too much
 			time.sleep(1)
