@@ -95,11 +95,7 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str,
 
 	# What the short tags used in the dictionary mean
 	jmdict_tags_mapping = data["tags"]
-	# custom changes:
-	jmdict_tags_mapping["n"] = "noun"
-	jmdict_tags_mapping["hon"] = "honorific/尊敬語"
-	jmdict_tags_mapping["pol"] = "polite/丁寧語"
-	jmdict_tags_mapping["hum"] = "humble/謙譲語"
+	print(json.dumps(jmdict_tags_mapping))
 
 	return (jmdict, jmdict_tags_mapping)
 
@@ -383,7 +379,7 @@ def prefer_uk(words: list[str]):
 		if key not in seen:
 			seen[key] = (w, is_uk)
 		else:
-			prev, prev_uk = seen[key]
+			_, prev_uk = seen[key]
 			if is_uk and not prev_uk:
 				seen[key] = (w, is_uk)
 
@@ -461,6 +457,34 @@ def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict[str, str|list[str]]:
 	}
 	return newdict
 	# expression,reading,english_definition,grammar,additional,tags,japanese_reading
+
+def refine_tags(jmdict_tags_mapping: dict[str, str]) -> dict[str, str]:
+	"""Changes the default jmdict human readable grammar definitions to something more suitable for the anki deck.
+
+	Simplifications mostly.
+	"""
+	changes = {
+		**{k: "godan verb" for k in ["v5b", "v5g", "v5n", "v5m", "v5r", "v5t", "v5s", "v5u" ]}, # replacing "Godan verb with 'ru' ending"
+		"adj-na": "na adjective", # replacing "adjectival nouns or quasi-adjectives (keiyodoshi)"
+		"adj-no": "no adjective", # replacing "nouns which may take the genitive case particle 'no'"
+		"adj-ix": "adjective", # replacing "adjective (keiyoushi) - yoi/ii class"
+		"adj-f": "adjective", # replacing "noun or verb acting prenominally"
+		"adj-i": "i adjective", # replacing "adjective (keiyoushi)"
+		"hon": "honorific/尊敬語",
+		"pol": "polite/丁寧語",
+		"hum": "humble/謙譲語",
+		"n": "noun", # replacing "noun (common) (futsuumeishi)"
+		"vs": "suru noun", # replacing "noun or participle which takes the aux. verb suru"
+		"int": "interjection", # replacing "interjection (kandoushi)"
+		"exp": "expression", # replacing "expressions (phrases, clauses, etc.)"
+		"adv": "adverb", # replacing "adverb (fukushi)"
+
+	}
+
+	jmdict_tags_mapping.update(changes)	
+
+	return jmdict_tags_mapping
+	
 
 def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -> pd.DataFrame:
 	"""Enhance the dataframe information to have vocab-study-ready columns
@@ -627,6 +651,9 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 	df_lookup = rdf.apply(lambda x: lookup_dict(x["jmdict_seq"], jmdict), axis=1, result_type="expand")
 	# Join the original csv with the dictionary information
 	rdf = pd.concat([rdf, df_lookup], axis=1)
+
+	# Adjust the grammar tags from jmdict to be more suitable for anki deck
+	jmdict_tags_mapping = refine_tags(jmdict_tags_mapping)
 
 	rdf = prepare_word_record(rdf, jmdict_tags_mapping)
 
