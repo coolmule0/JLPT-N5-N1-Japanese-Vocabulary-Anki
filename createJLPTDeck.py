@@ -157,11 +157,11 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
 ####################
 ## Transform helpers
 
-def find_addition_engl(entry: pd.DataFrame) -> list[list[str]]:
+def find_english_readings(entry: pd.DataFrame) -> list[list[str]]:
 	"""Read from the dictionary columns further english definitions of the word
 
 	A word can have multiple different meanings beyond the primary.
-	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns "the *something* river".
+	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns the primary definition (river) and the secondary meanings (the *something* river).
 
 	Parameters
 	----------
@@ -170,13 +170,24 @@ def find_addition_engl(entry: pd.DataFrame) -> list[list[str]]:
 
 	Returns
 	-------
-	list[list[str]]
-		English meanings for the word. Each inner list are related entries. Each outer list are distinct entries.
+	list[str], list[list[str]]
+		English meanings for the word. First of the tuple is the primary definition in english.
+		The second lists are all further meanings.
+		Each inner list are related entries. Each outer list are distinct entries.
 		For example "read" in the dictionary has outer entries for the past tense, for the present tense.
 		And it has multiple inner entries for each outer entry, such as [to look at words, to say the words]
 	"""
+	# How many primary english definitions to include.
+	# From experience, too many (the full amount) is too many for some entries
+	NUM_FIRST_SENSES = 2
 
+	first_sense = [x["text"] for x in entry["sense"].iloc[0][0]["gloss"]]
+	first_part = first_sense[:NUM_FIRST_SENSES]
 	adds = []
+
+	if len(first_sense) > NUM_FIRST_SENSES:
+		adds.append(first_sense[NUM_FIRST_SENSES:])
+
 	# Every sense after the first
 	for i in entry["sense"].iloc[0][1:]:
 		accept = True
@@ -191,7 +202,7 @@ def find_addition_engl(entry: pd.DataFrame) -> list[list[str]]:
 		# Combine the texts together in an array
 		if accept:
 			adds.append([x["text"] for x in i["gloss"]])
-	return adds
+	return (first_part, adds)
 
 def make_furigana(kanji: str, kana: str) -> str:
 	"""Generate a furigana word from associated kanji and kana. Is able to handle words with kana between the kanji.
@@ -374,13 +385,13 @@ def lookup_dict(dict_id: int, jmdict: pd.DataFrame) -> dict[str, str|list[str]]:
 	kanji = entry["kanji"].iloc[0][0]["text"] if len(entry["kanji"].iloc[0])  > 0 else ""
 	kana = entry["kana"].iloc[0][0]["text"] if len(entry["kana"].iloc[0])  > 0 else ""
 
-	additional = find_addition_engl(entry)
+	primary, additional = find_english_readings(entry)
 			
 	newdict = {
 		# "expression": entry.kanji_forms[0],
 		"reading_kanji": kanji,
 		"reading_kana": kana,
-		"english_definition": [x["text"] for x in entry["sense"].iloc[0][0]["gloss"]],
+		"english_definition": primary,
 		"grammar": entry["sense"].iloc[0][0]["partOfSpeech"],
 		"additional": additional,
 		"misc": entry["sense"].iloc[0][0]["misc"],
