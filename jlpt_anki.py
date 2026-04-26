@@ -18,7 +18,9 @@ import genanki
 
 """The core anki model (card layout, expected entries, and flashcard appearance). """
 model_core = genanki.Model(
-	2125329068, # random.randrange(1 << 30, 1 << 31), a fixed number for each model
+	## ID of the deck. Generated from random.randrange(1 << 30, 1 << 31), a fixed number for each model.
+	## Keep it this value so that importing the deck has the same ID as the previous, and anki correctly knows this is the deck to update regarding
+	2125329068, 
 	"Core Japanese Vocabulary",
 	fields=[
 		{"name": "Expression"},
@@ -44,7 +46,7 @@ model_core = genanki.Model(
 
 """ Alternative version for including audio. Includes extra field and different templates. """
 model_audio = genanki.Model(
-	1291263575,
+	1291263575, ## Deck ID, see above
 	"Core Japanese Vocabulary Extended",
 	fields=[
 		{"name": "Expression"},
@@ -79,6 +81,7 @@ class AnkiPackage:
 		type : Literal, optional
 			The type of package to generate, by default "core"
 		"""
+		self.deck_ids = DECKIDS[type]
 		if type == "core":
 			self.audio = False
 			self.model = model_core
@@ -94,29 +97,30 @@ class AnkiPackage:
 
 	def init_decks(self) -> None:
 		""" Create multiple nested decks -> common:N5::N4::N3 etc. """
+		self.decks = {}
+
 		# Construct names
 		deck_names = []
-		deck_layer_names = [
-			"Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary",
-			# "JLPT N1",
-			"JLPT N2",
-			"JLPT N3",
-			"JLPT N4",
-			"JLPT N5",
+		deck_layers = [
+			{"key": "N1", "label": "Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary"},
+			{"key": "N2", "label": "JLPT N2"},
+			{"key": "N3", "label": "JLPT N3"},
+			{"key": "N4", "label": "JLPT N4"},
+			{"key": "N5", "label": "JLPT N5"},
 		]
-		# For each of these decks, make them nested. E.g. the full deck name for N2 is common::n1::n2
-		for i, n in enumerate(deck_layer_names):
-			deck_name = deck_layer_names[0]
-			for j in range(1, i + 1, 1):
-				deck_name += f"::{deck_layer_names[j]}"
-			deck_names.append(deck_name)
+	
+		# decks = []
+		current_name_parts = []
+		for layer in deck_layers:
+			# For each of these decks, make them nested. E.g. the full deck name for N2 is common::n1::n2
+			current_name_parts.append(layer["label"])
+			deck_name = "::".join(current_name_parts)
 
-		# Create decks
-		decks = []
-		for d in deck_names:
-			deck = genanki.Deck(random.randrange(1 << 30, 1 << 31), d) # FIXME: should be fixed and unique per deck
-			decks.append(deck)
-		self.decks = decks
+			deck_id = self.deck_ids[layer["key"]]
+
+			deck = genanki.Deck(deck_id, deck_name)
+			# decks.append(deck)
+			self.decks[layer["key"]] = deck
 	
 	def get_deck(self, deck_name: str) -> genanki.Deck:
 		""" Get the anki deck associated with the deck_name
@@ -131,16 +135,11 @@ class AnkiPackage:
 		genanki.Deck
 			The deck associated with that name
 		"""
-		deck_mapping = {
-			"N5": 4,
-			"N4": 3,
-			"N3": 2,
-			"N2": 1,
-			"N1": 0,
-			# "common": 0,
-		}
-		return self.decks[deck_mapping[deck_name]]
-
+		try:
+			return self.decks[deck_name]
+		except KeyError:
+			raise ValueError(f"Unknown deck key: {deck_name}")
+	
 	def add_note(self, note: pd.Series, deck_name: str) -> None:
 		""" Create and adds a note to the revelant deck by searching its containing tags.
 
@@ -200,17 +199,41 @@ class AnkiPackage:
 		
 		filename = Path(folder_path, f"{p_name}.apkg")
 		logging.info(f"Saving anki package to {filename}")
-		package = genanki.Package(self.decks)
+		package = genanki.Package(list(self.decks.values()))
 		if self.audio:
 			package.media_files = self.audio_paths
 		package.write_to_file(filename)
 	
 	def get_cards_in_deck(self) -> dict[str, int]:
-		""" Get the number of notes within the decks
+		""" Get the number of notes/vocab-words within the decks
 
 		Returns
 		-------
 		dict[str, int]
 			How many notes for each deck name
 		"""
-		return {d.name: len(d.notes) for d in self.decks}
+		return {d.name: len(d.notes) for d in self.decks.values()}
+
+
+
+# Deck IDs
+## ID of the deck. Generated from random.randrange(1 << 30, 1 << 31), a fixed number for each model.
+## Keep it this value so that importing the deck has the same ID as the previous, and anki correctly knows this is the deck to update during import/upgrading
+DECKIDS = {
+	"extended": {
+		"N5": 1573200341,
+		"N4": 2011510961,
+		"N3": 1098277003,
+		"N2": 2037072551,
+		"N1": 1451620590,
+		"common": 1975199481,
+	},
+	"core": {
+		"N5": 2024894500,
+		"N4": 1952964240,
+		"N3": 2091691710,
+		"N2": 1335245950,
+		"N1": 1088576386,
+		"common": 1882435851,
+	}
+ }
