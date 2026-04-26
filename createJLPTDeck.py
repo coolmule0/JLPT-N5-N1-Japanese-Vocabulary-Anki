@@ -163,6 +163,8 @@ def find_english_readings(entry: pd.DataFrame) -> list[list[str]]:
 	A word can have multiple different meanings beyond the primary.
 	E.g. 川 has a primary definition of "river", and 1 additional meaning as "the *something* river". This function returns the primary definition (river) and the secondary meanings (the *something* river).
 
+	Also filters out British/American spellings in the same entry (e.g. materialisation/materialization) to just contain one	
+
 	Parameters
 	----------
 	entry : pd.DataFrame
@@ -182,6 +184,7 @@ def find_english_readings(entry: pd.DataFrame) -> list[list[str]]:
 	NUM_FIRST_SENSES = 2
 
 	first_sense = [x["text"] for x in entry["sense"].iloc[0][0]["gloss"]]
+	first_sense = prefer_uk(first_sense)
 	first_part = first_sense[:NUM_FIRST_SENSES]
 	adds = []
 
@@ -201,7 +204,11 @@ def find_english_readings(entry: pd.DataFrame) -> list[list[str]]:
 			accept = False
 		# Combine the texts together in an array
 		if accept:
-			adds.append([x["text"] for x in i["gloss"]])
+			gloss_texts = [x["text"] for x in i["gloss"]]
+
+			gloss_texts = prefer_uk(gloss_texts)
+			adds.append(gloss_texts)
+	
 	return (first_part, adds)
 
 def make_furigana(kanji: str, kana: str) -> str:
@@ -326,6 +333,62 @@ def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defn
 			
 	return filtered_defs
 
+
+def normalise(word: str) -> str:
+	"""normalise US/UK words to prefer UK spelling
+
+	Parameters
+	----------
+	word : str
+		word to try to make british
+
+	Returns
+	-------
+	str
+		british-fied word. May not actually be a word. This isn't an american-english convertion for all words!
+	"""
+	w = word.lower()
+
+	# US/UK normalization rules
+	w = re.sub(r'ization$', 'isation', w)
+	w = re.sub(r'izing$', 'ising', w)
+	w = re.sub(r'ize$', 'ise', w)
+	w = re.sub(r'or$', 'our', w)
+	w = re.sub(r'er$', 're', w)
+	w = re.sub(r'log$', 'logue', w)
+
+	return w
+
+def prefer_uk(words: list[str]):
+	"""Given a bunch of words, remove those with american spelling
+
+	Parameters
+	----------
+	words : _type_
+		_description_
+
+	Returns
+	-------
+	_type_
+		_description_
+	"""
+	seen = {}
+
+	for w in words:
+		key = normalise(w)
+
+		# UK heuristic: words ending in "isation", "ise", "our" prefered
+		is_uk = w.endswith(("isation", "ising", "ise", "our", "re", "logue"))
+
+		if key not in seen:
+			seen[key] = (w, is_uk)
+		else:
+			prev, prev_uk = seen[key]
+			if is_uk and not prev_uk:
+				seen[key] = (w, is_uk)
+
+	return [v[0] for v in seen.values()]
+	
 ####################
 ## Transforms
 
