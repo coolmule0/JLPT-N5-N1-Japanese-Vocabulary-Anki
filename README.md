@@ -13,7 +13,7 @@ These particular flashcards are structured for the official Japanese Language Pr
 
 The code stores and analyses various data sources to obtain vocabulary and difficulty information, combines them together, and converts it all into Anki-ready flashcards.
 
-If you would like to use the flashcards, head over to [JLPT-N5-N1 Japanese Vocabulary](https://ankiweb.net/shared/info/1550984460) and [JLPT-N5-N1 Japanese Vocabulary Extended Notes](https://ankiweb.net/shared/info/336300824), two decks with easy instructions for use within Anki. Alternatively, visit the [Releases] (link to be added) to download the raw files.
+If you would like to use the flashcards, head over to [JLPT-N5-N1 Japanese Vocabulary](https://ankiweb.net/shared/info/1550984460), the deck with easy instructions for use within Anki. Alternatively, visit the [Latest Releases](https://codeberg.org/coolmule0/JLPT-N5-N1-Japanese-Vocabulary-Anki/releasesreleases/latest) to download the same files. Download `Core Japanese Vocabulary Extended.apkg` for the anki-ready deck with audio, `Core Japanese Vocabulary.apkg` for the smaller version without audio (but same vocab), and `full.csv` for the tabular version of every card in the deck.
 
 If you would like to run the code yourself or make any programatic changes to the deck follow the instructions below to get set up.
 
