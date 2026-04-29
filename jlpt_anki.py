@@ -172,12 +172,12 @@ class AnkiPackage:
 		)
 		if self.audio:
 			# audio path exists, i.e. has a corresponding audio file
-			if pd.notna(note["wani_audio_path"]):
-				filename = note["wani_audio_path"].name
+			if pd.notna(note["audio_path"]):
+				filename = note["audio_path"].name
 				note_entry = f"[sound:{filename}]"
 				my_note.fields.append(note_entry)
 
-				self.audio_paths.append(note["wani_audio_path"])
+				self.audio_paths.append(note["audio_path"])
 			else:
 				my_note.fields.append("")
 

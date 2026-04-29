@@ -15,6 +15,8 @@ import pandas as pd
 
 from jlpt_anki import AnkiPackage
 from wanikani_audio import download_missing_wanikani_audio
+from sources.audio.kanjialive_audio import KaAudio
+from sources.audio.etl_audio import EtlAudio
 
 ####################
 ## Extract/load data from files
@@ -95,7 +97,6 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str,
 
 	# What the short tags used in the dictionary mean
 	jmdict_tags_mapping = data["tags"]
-	print(json.dumps(jmdict_tags_mapping))
 
 	return (jmdict, jmdict_tags_mapping)
 
@@ -147,6 +148,8 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
 	wani_audio_path.mkdir(parents=True, exist_ok=True)
 	wani_audio = extract_saved_wanikani_audio(wani_audio_path)
 	logging.info("Extracted existing wanikani audio.")
+	# Audio
+
 
 	return df, jmdict, jmdict_tags_mapping, wani_audio
 
@@ -566,7 +569,7 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 				.reset_index(drop=True)
 	)
 	# Rearrange columns
-	rdf = rdf[["jlpt_level", "jmdict_seq", "expression", "english_definition", "reading", "grammar", "additional", "tags", "wani_audio_path"]]
+	rdf = rdf[["jlpt_level", "jmdict_seq", "expression", "english_definition", "reading", "grammar", "additional", "tags", "audio_path"]]
 
 	return rdf
 
@@ -624,7 +627,7 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 	# Return df with the designated rows dropped
 	return df.drop(index=set(drop_indices))
 
-def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame) -> pd.DataFrame:
+def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame, audio_source: EtlAudio) -> pd.DataFrame:
 	"""Transform the extracted data, ready for loading.
 
 	Parameters
@@ -637,6 +640,8 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 		dictionary abbr tags to human explained
 	wani_audio : pd.DataFrame
 		columns with corresponding jmdict entry, and path saved at
+	audio_source : EtlAudio
+		audio pipeline
 
 	Returns
 	-------
@@ -661,14 +666,15 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 	rdf = drop_equivalent_rows(rdf)
 
 	# Add audio to the df
-	rdf = rdf.merge(
-		wani_audio,
-		on="jmdict_seq",
-		how="left",
-	)
-
+	# rdf = rdf.merge(
+	# 	wani_audio,
+	# 	on="jmdict_seq",
+	# 	how="left",
+	# )
 	# Download and add missing audio
-	rdf = download_missing_wanikani_audio(rdf, wani_audio)
+	# rdf = download_missing_wanikani_audio(rdf, wani_audio)
+	# Add audio
+	rdf = audio_source.run(jmdict, rdf)
 
 	rdf = finalise(rdf)
 
@@ -718,9 +724,15 @@ def run() -> None:
 	logging.info("Extracting info from files...")
 	df, jmdict, jmdict_tags_mapping, wani_audio = extract()
 
+	# TEMP:
+	# ka_m = KaAudio()
+	# foo = ka_m.run(jmdict, df)
+	# kadf = kanjialive_audio.construct_KA_df()
+	# kanjialive_audio.enrich(kadf, jmdict)
+
 	# Transform/clean these csvs for use
 	logging.info("Transforming data	...")
-	df = transform(df, jmdict, jmdict_tags_mapping, wani_audio)
+	df = transform(df, jmdict, jmdict_tags_mapping, wani_audio, KaAudio())
 
 	# Transform/prepare the dataframe for use as anki flashcards
 	logging.info("Finalising for anki...")
