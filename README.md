@@ -65,7 +65,7 @@ JLPT resources are primarily found from [Jonathan Waller‘s JLPT list](https://
 
 Japanese vocabulary information is gathered from the [JMDict, Japanese dictionary database](https://www.edrdg.org/jmwsgi/srchformq.py?svc=jmdict), a really good machine-friendly resoruce with a community helping to keep it up to date and evolving. The database is available for download. In particular, I use the unofficial json-formatted version https://github.com/scriptin/jmdict-simplified as I find json easier to parse myself. If you want to use a more up-to-date version of the dictionary. Download the json version you want from their releases, and point the `jmdict extract` function to the zip for it to use instead of the provided one.
 
-Audio is obtained courtesy of [Kanji Alive](https://kanjialive.com/). It uses their human audio samples.
+Audio is obtained courtesy of [Kanji Alive](https://kanjialive.com/) under a [Creative Commons Attribution 4.0 International License](http://creativecommons.org/licenses/by/4.0/). It uses their human audio samples.
 
 ## Information about the generated package
 
