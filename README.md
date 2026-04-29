@@ -4,20 +4,25 @@
 
 _Generating flashcards for studying for the official Japanese Language Proficiency Test (JLPT)_
 
-A script for creating Vocabulary Flashcards for learning Japanese Language Vocabulary. Flashcards have a question on one side and an answer on the other. For example "川" on one side and "river" on the other side. 
+A script and Anki package for learning Japanese Language Vocabulary through flashcards.
 
 ![An anki card](example_images/example_anki.png)
 
+Structured for the official Japanese Language Proficiency Test (JLPT). These flashcards are designed for use in a Spaced Repetition software such as [Anki](https://apps.ankiweb.net/). Anki helps manage when to review the flashcard according to how easy you found the question on the card. The flashcards are designed to help learn japanese vocabulary for all levels of Japanese, from beginners through to advanced native speaking.
 
-These particular flashcards are structured for the official Japanese Language Proficiency Test (JLPT). Flashcards, while a useful study tool by themselves, can enhance learning further by using a Spaced Repetition software such as [Anki](https://apps.ankiweb.net/), which helps manage when to review the flashcard according to how easy you found the question on the card. The flashcards are designed to help learn japanese vocabulary for all levels of Japanese, from beginners through to advanced native speaking.
+# Use the deck now
 
-The code stores and analyses various data sources to obtain vocabulary and difficulty information, combines them together, and converts it all into Anki-ready flashcards.
+## Anki Web
 
-If you would like to use the flashcards, head over to [JLPT-N5-N1 Japanese Vocabulary](https://ankiweb.net/shared/info/1550984460), the deck with easy instructions for use within Anki. Alternatively, visit the [Latest Releases](https://codeberg.org/coolmule0/JLPT-N5-N1-Japanese-Vocabulary-Anki/releasesreleases/latest) to download the same files. Download `Core Japanese Vocabulary Extended.apkg` for the anki-ready deck with audio, `Core Japanese Vocabulary.apkg` for the smaller version without audio (but same vocab), and `full.csv` for the tabular version of every card in the deck.
+**Recommended approach**. To use the flashcards for learning straight away, head over to [JLPT-N5-N1 Japanese Vocabulary](https://ankiweb.net/shared/info/1550984460) and download Anki.
 
-If you would like to run the code yourself or make any programatic changes to the deck follow the instructions below to get set up.
+## Download files
 
-# How to use it
+Visit the [Latest Releases](https://codeberg.org/coolmule0/JLPT-N5-N1-Japanese-Vocabulary-Anki/releasesreleases/latest) to download the raw anki files. Useful for manual import. Download `Core Japanese Vocabulary Extended.apkg` for the anki-ready deck with audio, `Core Japanese Vocabulary.apkg` for the smaller version without audio (but same vocab), and `full.csv` for the tabular version of every card in the deck.
+
+# Coding
+
+The following is all related to the code for generating the deck.
 
 ## Installing
 
@@ -37,11 +42,12 @@ run `python createJLPTDeck.py`. This will generate a `.csv` and `.apkg` files in
 Audio is available from [Kanji Alive](https://kanjialive.com/). They provide archive dowloads of all audio files in different formats. Download the data type of choice (e.g. mp3), extract it into `original_data/kanji_alive/audio-mp3` or whatever file name it recommends. Then the audio is ready to be included in cards which match
 
 
-## Developing
+## Developing & Contributing
 
 In addition to the above requirements, also install `requirements-dev.txt` which contains typing and linting.
 
-# Why it exists
+
+# Why this exists
 
 I viewed the JLPT exams as a clear objective to study for. They are official, and they come in multiple levels starting from beginner so each stage is a small achievable objective. Also, Anki was commonly touted for studying foreign languages. I was drawn to the simplicity and efficacy of Anki, as well as its mature community with plentiful resources. I was able to find a flashcard deck from a book I was using to study (Genki 1 and 2), and straight away I was learning vocab from the book.
 
@@ -49,7 +55,9 @@ As I reached the end of Genki I wanted to continue the strong structured learnin
 
 I figured a JLPT-based deck of a few thousand cards could be created programatically. I took lists of vocab within the JLTP, joined it with vocab word information, and made a programmable pipeline to be able to handle the thousands of flashcards that are needed for mastering the Japanese language.
 
-I use these generated decks for my own vocabulary study, and aim to keep it up-to-date and relevant for both myself and others who use it. I want something focused - just JLPT, and to do it well. To be a correct and up-to-date resource for language study.
+I use these generated decks for my own vocabulary study, and aim to keep it relevant for both myself and others who use it. I want something focused - just JLPT, and to do it well. To be a correct and up-to-date resource for language study.
+
+It's been a challenge figuring out a way to keep the process repeatable, yet make changes to cards and entries when they are incorrect or could do with improvement.
 
 ## Further ideas
 
@@ -57,67 +65,11 @@ There's always more I want to be doing with this. If you have some ideas you wou
 
 An example extention idea is using one of the alternative JMDict language downloads. It isn't just english, containing multiple different languages. Can use the non-english meanings create a German-Japanese (say) language deck. 
 
-# Misc
+# Data Information
 
-## Data sources
+More detailed information about the generated decks and `csv`s, the data sources used, and the card structure is available in the [data document](docs/data.md).
 
-JLPT resources are primarily found from [Jonathan Waller‘s JLPT list](https://www.tanos.co.uk/jlpt/). This resource is used for the online dictionary [Jisho](https://jisho.org) as well as derivatives such as [JLPT Sensei](https://jlptsensei.com/).
-
-Japanese vocabulary information is gathered from the [JMDict, Japanese dictionary database](https://www.edrdg.org/jmwsgi/srchformq.py?svc=jmdict), a really good machine-friendly resoruce with a community helping to keep it up to date and evolving. The database is available for download. In particular, I use the unofficial json-formatted version https://github.com/scriptin/jmdict-simplified as I find json easier to parse myself. If you want to use a more up-to-date version of the dictionary. Download the json version you want from their releases, and point the `jmdict extract` function to the zip for it to use instead of the provided one.
-
-Audio is obtained courtesy of [Kanji Alive](https://kanjialive.com/) under a [Creative Commons Attribution 4.0 International License](http://creativecommons.org/licenses/by/4.0/). It uses their human audio samples.
-
-## Information about the generated package
-
-### The `.apkg` deck structure
-
-The increasing vocabulary structure of JLPT lends itself well to a simple heirarchy:
-
-- JLPT N1 (3053 cards)
-	- JLPT N2 (1737 cards)
-		- JLPT N3 (1647 cards)
-			- JLPT N4 (630 cards)
-				- JLPT N5 (667 cards)
-
-With N5 as the easiest, and N1 being the hardest. This structure means every grade below it is also included in the review list. So studying N3 also includes the vocabulary studied for N4 and N5.
-
-To achieve this in Anki start by creating an empty deck of the above form. The quickest way to do this is create a new deck called `Core Japanese Vocabulary::JLPT N2::JLPT N3::JLPT N4::JLPT N5`. The "::" in Anki means subdeck.
-
-### Card layout
-
-By default each vocabular word has two cards in the deck, "recognition" and "recall". Recognition provides the Japanese and asks for the English, while recall shows the English and asks for the equivalent Japanese word. I personally find recall useful for the initial stages of study, but becomes less relevant for the higher grades. Check out online resources for information if you don't want to study one of the two types of card.
-
-The appearance of the flashcards is controled by the `card_style` folder, which contains `html` and `css` styling. These control what fields are displayed where, and how they should appear.
-
-I've created a custom furigana-toggle style which hides and shows the furigana of the word when click/tapped. Furigana is the helpful hiragana shown in small above kanji to explain how to pronounce the word. Feel free to take this .css file for your own uses.
-
-### Note Structure
-
-Each flashcard in the deck contains the following elements:
-
-| Field | Explanation |
-| --- | --- |
-|"Expression" | The word/expression in japanese with only kanji if relevant
-| "English definition" | The main english meaning, translated
-| "Reading" | Similar to "expression", but with kanji expanded with ruby-ready furigana addition
-| "Grammar" | The grammatical usage of the word |
-| "Additional definitions" | Other english meanings
-| ("Sound") | (Optional: audio pronunciation of the word. Only used for `extended` deck type) |
-| "tags" | See the table below. Includes JLPT grade, formality, and other relevant grouping to easily manipulate multiple cards. |
-
-
-### The card tags
-
-Each card/vocabulary-word has various possible tags.
-
-| Tag category | Tag on card | Explanation |
-|---|---|---|
-|JLPT level | N5, N3, etc | The difficulty grade. Only one. Always included. |
-|Formality | Polite, Humble, Honourific | If the word is used in a particular form of japanese speech. |
-| Usually kana | usually_kana | Word is usually seen in kana form, though a kanji form does exist. |
-
-
-## Support
+# Support
 If you've found this deck and script useful, please consider leaving a small donation of your appreciation. Every little bit helps!
 
 [![LiberaPay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/JAC5/)
