@@ -9,6 +9,7 @@ import math
 from pathlib import Path
 from typing import Literal
 import logging
+import hashlib
 
 import pandas as pd
 import genanki
@@ -150,15 +151,12 @@ class AnkiPackage:
 		deck_name : str
 			The name of the deck to insert this card into
 		"""
-		# Ignore possible repeated entries
-		if note["expression"] in self.entries:
-			logging.debug(f"Not adding duplicate note {note}")
-			return
+
 
 		deck = self.get_deck(deck_name)
 		notes_in_deck = len(deck.notes)
 
-		my_note = genanki.Note(
+		my_note = JlptNote(
 			model=self.model,
 			fields=[
 				note["expression"],
@@ -181,8 +179,13 @@ class AnkiPackage:
 			else:
 				my_note.fields.append("")
 
+		# # Ignore possible repeated entries
+		if my_note.guid in self.entries:
+			logging.debug(f"Not adding duplicate note (id: {note["jmdict_seq"]}, {note["reading"]})")
+			return
+
 		deck.add_note(my_note)
-		self.entries.append(note["expression"])
+		self.entries.append(my_note.guid)
 
 	def save_to_folder(self, folder_path: Path) -> None:
 		""" Create an apkg file of the combined info.
@@ -213,8 +216,21 @@ class AnkiPackage:
 			How many notes for each deck name
 		"""
 		return {d.name: len(d.notes) for d in self.decks.values()}
+	
+	# def make_hash(self, note: pd.Series) -> str:
+	# 	# which combination of columns makes a unique card,
+	# 	# yet still shouldn't change too much between iterations such that they can still update previous versions of the card
+	# 	hashing_columns = ["expression", "reading"]
+	# 	text = "||".join(arr)
 
+	# 	digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+	# 	return int(digest, 16)
 
+class JlptNote(genanki.Note):
+	@property
+	def guid(self):
+		# fields[0] = expression. fields[2] = reading (hopefully)
+		return genanki.guid_for(self.fields[0], self.fields[2])
 
 # Deck IDs
 ## ID of the deck. Generated from random.randrange(1 << 30, 1 << 31), a fixed number for each model.

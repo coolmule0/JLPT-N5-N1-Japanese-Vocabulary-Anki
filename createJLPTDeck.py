@@ -10,6 +10,7 @@ import re
 import logging
 from pathlib import Path
 import zipfile
+import argparse
 
 import pandas as pd
 
@@ -411,8 +412,8 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 	
 	# Drop duplicates in jmdict_seq, keeping the lowest/easiest level (which comes first in the df)
 	dupes = rdf[rdf.duplicated(subset="jmdict_seq", keep="first")]
-	logging.debug("Duplicated jmdict_seq rows dropped:")
-	logging.debug(dupes["jmdict_seq"])
+	logging.debug("Duplicated jmdict_seq rows dropped: {len[dupes]}. Keeping the easier level")
+	# logging.debug(dupes["jmdict_seq"])
 	rdf = rdf.drop(dupes.index)
 
 
@@ -719,7 +720,7 @@ def run() -> None:
 	"""The main extract-transform-load (ETL) loop"""
 
 	# Set logging level
-	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+	# logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s: %(message)s")
 
 	logging.info("Extracting info from files...")
 	df, jmdict, jmdict_tags_mapping, wani_audio = extract()
@@ -738,5 +739,24 @@ def run() -> None:
 	logging.info("Finalising for anki...")
 	load(df)
 
+def setup_logging(level: str):
+	numeric_level = getattr(logging, level.upper(), None)
+	if not isinstance(numeric_level, int):
+		raise ValueError(f"Invalid log level: {level}")
+
+	logging.basicConfig(
+		level=numeric_level,
+		format="%(asctime)s - %(levelname)s: %(message)s"
+	)
+
 if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description="JLPT Anki Deck generator")
+	parser.add_argument("--log-level",
+		default="INFO",
+		choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+		help="Set logging level"
+	)
+	args = parser.parse_args()
+	setup_logging(args.log_level)
+	
 	run()

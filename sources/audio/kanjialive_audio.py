@@ -41,17 +41,23 @@ class KaAudio(EtlAudio):
 		jmdict_comp_df = jmdict.copy()
 		jmdict_comp_df["merge_key"] = jmdict_comp_df["kanji"].apply(extract_kanji_text)
 
+		# drop audio with multiple pronunciations (different actual words, e.g. 得る (える/うる))
+		audiodf = audiodf[~audiodf["reading"].str.contains(r"/", na=False)]
+
 		# Merge on kanji
 		comb = audiodf.merge(
 			jmdict_comp_df[["merge_key", "id"]],
 			left_on="word",
 			right_on="merge_key",
-			how="inner"
+			how="left"
 		)
 		# drop empty kanji. Otherwise they merge/match with some random yet specific entry
 		comb = comb[comb["merge_key"].notna() & (comb["merge_key"] != "")]
 
-		
+		# Drop repeated entries
+		comb = comb.drop_duplicates(subset=["merge_key"])
+
+
 
 		# Rename so matches expected format
 		comb = comb.rename(columns={"id": "jmdict_seq"})
