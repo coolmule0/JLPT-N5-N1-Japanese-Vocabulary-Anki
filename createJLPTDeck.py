@@ -15,7 +15,6 @@ import argparse
 import pandas as pd
 
 from jlpt_anki import AnkiPackage
-from wanikani_audio import download_missing_wanikani_audio
 from sources.audio.kanjialive_audio import KaAudio
 from sources.audio.etl_audio import EtlAudio
 
@@ -507,8 +506,6 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -
 	"""
 	rdf = df.copy()
 	rdf["english_definition"] = rdf["english_definition"].str.join(', ')
-	rdf["grammar"] = rdf["grammar"].apply(lambda lst: [jmdict_tags_mapping[item] for item in lst])
-	rdf["grammar"] = rdf["grammar"].str.join(', ')
 
 	rdf["reduced_additional"] = df.apply(lambda x: filter_english_definitions(x["additional"], x["english_definition"]), axis=1)
 	rdf["reduced_additional"] = rdf["reduced_additional"].str.join(', ')
@@ -535,6 +532,16 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -
 	rdf["tags"] = rdf.apply( lambda x: x["formality"] + [x["tags"]] + x["rare"] + [f"jlpt_{x['jlpt_level']}"], axis=1)
 	
 	rdf["expression"] = df.apply(lambda x: x["reading_kanji"] if x["reading_kanji"] != "" else x["reading_kana"], axis=1)
+
+	# rdf["grammar"] = rdf["grammar"].apply(lambda lst: [jmdict_tags_mapping[item] for item in lst])
+	rdf["grammar"] = rdf.apply(
+		lambda row: (
+			[jmdict_tags_mapping[item] for item in row["grammar"]] +
+			[jmdict_tags_mapping[item] for item in row["misc"] if item in formal_tags]
+		),
+		axis=1
+	)
+	rdf["grammar"] = rdf["grammar"].str.join(', ')
 
 	return rdf
 
