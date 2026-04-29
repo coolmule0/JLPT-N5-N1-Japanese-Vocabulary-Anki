@@ -34,7 +34,8 @@ pip install -r requirements.txt
 
 run `python createJLPTDeck.py`. This will generate a `.csv` and `.apkg` files in the `output` directory. The `.apkg` file is ready to be imported into Anki (use the "import from file" option). The two different `.apkg` files are the two different packages, one including audio (and hence a larger size). The `.csv` is a tabular format of each vocabulary card with all its associated information.
 
-To download audio create a file `wanikani_token` in the root directory. It should contain a single line: your wanikani api key. The api requires token authentication for every call to wanikani.
+Audio is available from [Kanji Alive](https://kanjialive.com/). They provide archive dowloads of all audio files in different formats. Download the data type of choice (e.g. mp3), extract it into `original_data/kanji_alive/audio-mp3` or whatever file name it recommends. Then the audio is ready to be included in cards which match
+
 
 ## Developing
 
@@ -64,7 +65,7 @@ JLPT resources are primarily found from [Jonathan Waller‘s JLPT list](https://
 
 Japanese vocabulary information is gathered from the [JMDict, Japanese dictionary database](https://www.edrdg.org/jmwsgi/srchformq.py?svc=jmdict), a really good machine-friendly resoruce with a community helping to keep it up to date and evolving. The database is available for download. In particular, I use the unofficial json-formatted version https://github.com/scriptin/jmdict-simplified as I find json easier to parse myself. If you want to use a more up-to-date version of the dictionary. Download the json version you want from their releases, and point the `jmdict extract` function to the zip for it to use instead of the provided one.
 
-Audio is scraped from Wanikani. It requires a user-provided auth token in a `wanikani_token` file. It uses their human audio samples.
+Audio is obtained courtesy of [Kanji Alive](https://kanjialive.com/). It uses their human audio samples.
 
 ## Information about the generated package
 
@@ -72,11 +73,11 @@ Audio is scraped from Wanikani. It requires a user-provided auth token in a `wan
 
 The increasing vocabulary structure of JLPT lends itself well to a simple heirarchy:
 
-- JLPT N1 (3056 cards)
-	- JLPT N2 (1724 cards)
-		- JLPT N3 (1591 cards)
-			- JLPT N4 (613 cards)
-				- JLPT N5 (625 cards)
+- JLPT N1 (3053 cards)
+	- JLPT N2 (1737 cards)
+		- JLPT N3 (1647 cards)
+			- JLPT N4 (630 cards)
+				- JLPT N5 (667 cards)
 
 With N5 as the easiest, and N1 being the hardest. This structure means every grade below it is also included in the review list. So studying N3 also includes the vocabulary studied for N4 and N5.
 
@@ -113,7 +114,6 @@ Each card/vocabulary-word has various possible tags.
 |---|---|---|
 |JLPT level | N5, N3, etc | The difficulty grade. Only one. Always included. |
 |Formality | Polite, Humble, Honourific | If the word is used in a particular form of japanese speech. |
-|Archaic word | Rare | A word that is rarely used, yet still considered part of the vocabulary. |
 | Usually kana | usually_kana | Word is usually seen in kana form, though a kanji form does exist. |
 
 

@@ -1,6 +1,7 @@
 import ast
 import string
 from pathlib import Path
+import logging
 
 
 import pandas as pd
@@ -57,13 +58,10 @@ class KaAudio(EtlAudio):
 		# Drop repeated entries
 		comb = comb.drop_duplicates(subset=["merge_key"])
 
-
-
 		# Rename so matches expected format
 		comb = comb.rename(columns={"id": "jmdict_seq"})
 
-		print("leng:")
-		print(len(comb))
+		logging.debug(f"Found {len(comb)} entries of audio with a match in the jmdict")
 		return comb[["jmdict_seq", "audio_path"]]
 
 	def analysis(audiodf: pd.DataFrame, jmdict: pd.DataFrame):

@@ -412,7 +412,7 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 	
 	# Drop duplicates in jmdict_seq, keeping the lowest/easiest level (which comes first in the df)
 	dupes = rdf[rdf.duplicated(subset="jmdict_seq", keep="first")]
-	logging.debug("Duplicated jmdict_seq rows dropped: {len[dupes]}. Keeping the easier level")
+	logging.debug(f"Duplicated jmdict_seq rows dropped: {len(dupes)}. Keeping the easier level")
 	# logging.debug(dupes["jmdict_seq"])
 	rdf = rdf.drop(dupes.index)
 
@@ -666,14 +666,6 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 	# drop edge cases of competing reading rows that have multiple entries, where some have only kanji but usually kana and some are only kana
 	rdf = drop_equivalent_rows(rdf)
 
-	# Add audio to the df
-	# rdf = rdf.merge(
-	# 	wani_audio,
-	# 	on="jmdict_seq",
-	# 	how="left",
-	# )
-	# Download and add missing audio
-	# rdf = download_missing_wanikani_audio(rdf, wani_audio)
 	# Add audio
 	rdf = audio_source.run(jmdict, rdf)
 
