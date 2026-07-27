@@ -26,6 +26,11 @@
 	margin: 5% 2%;
 }
 
+.mediumEnglish {
+	font-size:0.9em;
+	margin: 10% 2%;
+}
+
 
 /*checkbox hack, allows click effects to show/hide the furigana https://stackoverflow.com/questions/13630229/can-i-have-an-onclick-effect-in-css */
 

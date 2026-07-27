@@ -59,11 +59,25 @@ I use these generated decks for my own vocabulary study, and aim to keep it rele
 
 It's been a challenge figuring out a way to keep the process repeatable, yet make changes to cards and entries when they are incorrect or could do with improvement.
 
+## Sources
+
+While studying I and others have noticed that just having the words can be difficult, especially at higher levels from N3 higher where context becomes important. My idea to help with this problem is to include an sentence displaying the word in the context of a sentence
+
 ## Further ideas
 
 There's always more I want to be doing with this. If you have some ideas you would like to see, drop a github issue, or Anki review.
 
-An example extention idea is using one of the alternative JMDict language downloads. It isn't just english, containing multiple different languages. Can use the non-english meanings create a German-Japanese (say) language deck. 
+An example extention idea is using one of the alternative JMDict language downloads. It isn't just english, containing multiple different languages. Can use the non-english meanings create a German-Japanese (say) language deck.
+
+# Studying tips
+
+### Recognition/Recall cards
+The deck includes Japanese -> English e.g. [川 -> River] (Recognition), as well as English -> Japanese [River -> 川] (Recall). This can be nice to get to grips when starting to study Japanese, but the English->Japanese can quickly can become frustrating and not as effective a tool as the Japanese->English. Dont' be afraid to remove the recall cards so you are only studying Japanese->English, epsecially if you are past the N5 or N4 level.
+
+### Sentences
+Sentence information is most helpful if you have a grasp of japanese grammar and sentence structure. If in the early levels of study, sentences might seem complex and convoluted. They should be ignored or removed until you start finding the context of words becoming a little tricky, probably around N3.
+
+If you want to not include sentences, then you can edit the card format to not display them. It varies by your platform, but you need to go into the html file and remove occurences of {{example-en}} and {{example-jp}}. You can always add them back in by re-downloading the deck or manually at a later time without issue.
 
 # Data Information
 

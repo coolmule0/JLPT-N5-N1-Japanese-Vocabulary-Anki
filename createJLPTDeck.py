@@ -17,6 +17,7 @@ import pandas as pd
 from jlpt_anki import AnkiPackage
 from sources.audio.kanjialive_audio import KaAudio
 from sources.audio.etl_audio import EtlAudio
+from sources.sentences.sentence_matcher import SentenceMatcher
 
 ####################
 ## Extract/load data from files
@@ -562,7 +563,7 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
 
 	# Column name tidy
-	rdf = rdf.drop(["kana", "kanji", "waller_definition", "additional", "misc", "reading_kanji", "reading_kana", "usually_kana", "formality"], axis=1)
+	rdf = rdf.drop(["kana", "kanji", "waller_definition", "additional", "misc", "reading_kanji", "reading_kana", "usually_kana", "formality", "example_sentence_id", "example_has_audio"], axis=1)
 	rdf = rdf.rename({"reduced_additional": "additional"}, axis=1)
 
 	# Data checks have expected structure for anki import
@@ -577,7 +578,7 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 				.reset_index(drop=True)
 	)
 	# Rearrange columns
-	rdf = rdf[["jlpt_level", "jmdict_seq", "expression", "english_definition", "reading", "grammar", "additional", "tags", "audio_path"]]
+	rdf = rdf[["jlpt_level", "jmdict_seq", "expression", "english_definition", "reading", "grammar", "additional", "tags", "audio_path", "example_jp", "example_en"]]
 
 	return rdf
 
@@ -676,6 +677,15 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 	# Add audio
 	rdf = audio_source.run(jmdict, rdf)
 
+	# Match Tatoeba example sentences
+	logging.info("Matching Tatoeba example sentences...")
+	search_terms = set(rdf.apply(
+		lambda x: x["expression"] if "[" in x["reading"] else x["reading"], axis=1
+	))
+	matcher = SentenceMatcher(search_terms)
+	rdf = matcher.match_all(rdf)
+	rdf = matcher.download_sentence_audio(rdf)
+
 	rdf = finalise(rdf)
 
 	return rdf
@@ -731,7 +741,7 @@ def run() -> None:
 	# kanjialive_audio.enrich(kadf, jmdict)
 
 	# Transform/clean these csvs for use
-	logging.info("Transforming data	...")
+	logging.info("Transforming data...")
 	df = transform(df, jmdict, jmdict_tags_mapping, wani_audio, KaAudio())
 
 	# Transform/prepare the dataframe for use as anki flashcards

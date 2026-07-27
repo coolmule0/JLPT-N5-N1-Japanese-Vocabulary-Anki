@@ -21,7 +21,7 @@ import genanki
 model_core = genanki.Model(
 	## ID of the deck. Generated from random.randrange(1 << 30, 1 << 31), a fixed number for each model.
 	## Keep it this value so that importing the deck has the same ID as the previous, and anki correctly knows this is the deck to update regarding
-	2125329068, 
+	2125329068,
 	"Core Japanese Vocabulary",
 	fields=[
 		{"name": "Expression"},
@@ -29,6 +29,8 @@ model_core = genanki.Model(
 		{"name": "Reading"},
 		{"name": "Grammar"},
 		{"name": "Additional definitions"},
+		{"name": "Example JP"},
+		{"name": "Example EN"},
 	],
 	templates=[
 		{
@@ -47,7 +49,7 @@ model_core = genanki.Model(
 
 """ Alternative version for including audio. Includes extra field and different templates. """
 model_audio = genanki.Model(
-	1291263575, ## Deck ID, see above
+	1291263575,  ## Deck ID, see above
 	"Core Japanese Vocabulary Extended",
 	fields=[
 		{"name": "Expression"},
@@ -55,6 +57,8 @@ model_audio = genanki.Model(
 		{"name": "Reading"},
 		{"name": "Grammar"},
 		{"name": "Additional definitions"},
+		{"name": "Example JP"},
+		{"name": "Example EN"},
 		{"name": "Sound"},
 	],
 	templates=[
@@ -156,6 +160,9 @@ class AnkiPackage:
 		deck = self.get_deck(deck_name)
 		notes_in_deck = len(deck.notes)
 
+		example_jp = note.get("example_jp", "")
+		example_en = note.get("example_en", "")
+
 		my_note = JlptNote(
 			model=self.model,
 			fields=[
@@ -164,20 +171,29 @@ class AnkiPackage:
 				note["reading"],
 				note["grammar"],
 				note["additional"],
+				example_jp if pd.notna(example_jp) else "",
+				example_en if pd.notna(example_en) else "",
 			],
 			tags=note["tags"],
-			due=notes_in_deck, # make sure each due card is a different index
+			due=notes_in_deck,
 		)
 		if self.audio:
-			# audio path exists, i.e. has a corresponding audio file
-			if pd.notna(note["audio_path"]):
+			# Build Sound field: word audio + sentence audio
+			sound_parts = []
+			if pd.notna(note.get("audio_path")):
 				filename = note["audio_path"].name
-				note_entry = f"[sound:{filename}]"
-				my_note.fields.append(note_entry)
+				sound_parts.append(f"[sound:{filename}]")
+				if note["audio_path"] not in self.audio_paths:
+					self.audio_paths.append(note["audio_path"])
 
-				self.audio_paths.append(note["audio_path"])
-			else:
-				my_note.fields.append("")
+			if pd.notna(note.get("example_audio_path")):
+				example_path = Path(str(note["example_audio_path"]))
+				example_filename = example_path.name
+				sound_parts.append(f"[sound:{example_filename}]")
+				if example_path not in self.audio_paths:
+					self.audio_paths.append(example_path)
+
+			my_note.fields.append(" ".join(sound_parts))
 
 		# # Ignore possible repeated entries
 		if my_note.guid in self.entries:
@@ -229,7 +245,8 @@ class AnkiPackage:
 class JlptNote(genanki.Note):
 	@property
 	def guid(self):
-		# fields[0] = expression. fields[2] = reading (hopefully)
+		# fields[0] = expression. fields[2] = reading (hopefully).
+		# These should be enough to uniquely identify any card, even when other values are added and removed.
 		return genanki.guid_for(self.fields[0], self.fields[2])
 
 # Deck IDs

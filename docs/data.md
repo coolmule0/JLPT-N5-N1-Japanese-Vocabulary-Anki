@@ -8,6 +8,8 @@ Japanese vocabulary information is gathered from the [JMDict, Japanese dictionar
 
 Audio is obtained courtesy of [Kanji Alive](https://kanjialive.com/) under a [Creative Commons Attribution 4.0 International License](http://creativecommons.org/licenses/by/4.0/). It uses their human audio samples.
 
+Sentences are taken from [Tatoeba](https://tatoeba.org) the amazing free resource of crowd-sourced sentences and translations.
+
 ## Information about the generated package
 
 ### The `.apkg` deck structure
