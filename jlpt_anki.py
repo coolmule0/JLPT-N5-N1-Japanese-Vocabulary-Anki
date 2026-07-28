@@ -107,7 +107,7 @@ class AnkiPackage:
 		# Construct names
 		deck_names = []
 		deck_layers = [
-			{"key": "N1", "label": "Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary"},
+			{"key": "N1", "label": "Core Japanese Vocabulary Extended" if self.audio else "Core Japanese Vocabulary"}, # The top-level deck name. The primary name that shows up in Anki
 			{"key": "N2", "label": "JLPT N2"},
 			{"key": "N3", "label": "JLPT N3"},
 			{"key": "N4", "label": "JLPT N4"},
@@ -171,11 +171,11 @@ class AnkiPackage:
 				note["reading"],
 				note["grammar"],
 				note["additional"],
-				example_jp if pd.notna(example_jp) else "",
-				example_en if pd.notna(example_en) else "",
+				note["example_jp"],
+				note["example_en"],
 			],
 			tags=note["tags"],
-			due=notes_in_deck,
+			due=notes_in_deck, # make sure each due card is a different index
 		)
 		if self.audio:
 			# Build Sound field: word audio + sentence audio

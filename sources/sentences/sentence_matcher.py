@@ -34,6 +34,14 @@ def _is_kanji(char: str) -> bool:
 	return _KANJI_RE.fullmatch(char) is not None
 
 
+def _highlight_term(text: str, term: str) -> str:
+	"""Wrap the first occurrence of term in <mark> tags."""
+	pos = text.find(term)
+	if pos == -1:
+		return text
+	return text[:pos] + '<mark>' + term + '</mark>' + text[pos + len(term):]
+
+
 
 def _is_standalone_kanji(term: str, sentence: str, start: int, end: int) -> bool:
 	"""Check if a pure-kanji term appears as a standalone token, not embedded in a kanji compound.
@@ -248,6 +256,13 @@ class SentenceMatcher:
 
 		# Apply manual overrides
 		rdf = self._apply_overrides(rdf)
+
+		# Highlight matched term in example sentences
+		for i, row in rdf.iterrows():
+			if not row["example_jp"]:
+				continue
+			term = row.get("reading", "")# if "[" in row.get("reading", "") else row.get("reading", "")
+			rdf.at[i, "example_jp"] = _highlight_term(row["example_jp"], term)
 
 		matched = rdf["example_jp"].ne("").sum()
 		with_audio = rdf["example_has_audio"].sum()
