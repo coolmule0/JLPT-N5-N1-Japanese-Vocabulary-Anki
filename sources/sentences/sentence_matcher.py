@@ -174,10 +174,10 @@ class SentenceMatcher:
 
 		self.audio_ids = set(self.audio["sentence_id"].unique())
 
-		transc_with_user = self.transcriptions[self.transcriptions["has_username"]]
-		transc_no_user = self.transcriptions[~self.transcriptions["has_username"]]
-		self.trans_user_ids = set(transc_with_user["sentence_id"].unique())
-		self.transc_no_user_ids = set(transc_no_user["sentence_id"].unique())
+		trans_with_user = self.transcriptions[self.transcriptions["has_username"]]
+		trans_no_user = self.transcriptions[~self.transcriptions["has_username"]]
+		self.trans_user_ids = set(trans_with_user["sentence_id"].unique())
+		self.trans_no_user_ids = set(trans_no_user["sentence_id"].unique())
 		self.transcription_map = dict(
 			zip(self.transcriptions["sentence_id"], self.transcriptions["transcription"])
 		)
@@ -199,7 +199,7 @@ class SentenceMatcher:
 		"""Return transcription priority rank: 0 = has username, 1 = no username, 2 = no transcription."""
 		if sentence_id in self.trans_user_ids:
 			return 0
-		elif sentence_id in self.transc_no_user_ids:
+		elif sentence_id in self.trans_no_user_ids:
 			return 1
 		else:
 			return 2
@@ -247,12 +247,11 @@ class SentenceMatcher:
 				# Transcribed path — extract reading from furigana annotation (kanji only).
 				if jp_transcribed is not None:
 					reading = ""
-					if term in kanji_terms:
-						lead = _leading_kanji(term)
-						if lead:
-							t_pos = jp_transcribed.find(lead)
-							if t_pos != -1:
-								reading = _extract_reading(jp_transcribed, t_pos, len(lead))
+					lead = _leading_kanji(term) if term in kanji_terms else ""
+					if lead:
+						t_pos = jp_transcribed.find(lead)
+						if t_pos != -1:
+							reading = _extract_reading(jp_transcribed, t_pos, len(lead))
 					candidate = {
 						"jp": jp_transcribed,
 						"en": row.en_meaning,
@@ -260,7 +259,7 @@ class SentenceMatcher:
 						"has_audio": has_audio,
 						"length": length,
 						"t_rank": t_rank,
-						"term_form": f"{term}[{reading}]" if reading else term,
+						"term_form": f"{lead}[{reading}]{term[len(lead):]}" if reading else term,
 					}
 					key = (term, reading)
 					if key not in index:
@@ -295,12 +294,16 @@ class SentenceMatcher:
 		search_term : str
 			The kanji or kana form to search for.
 		reading : str
-			The kana reading to prefer for kanji terms (e.g. `がく` for `学`). If a reading-specific match exists it is returned; otherwise falls back to the reading-agnostic entry.
+			The kana reading to prefer for kanji terms (e.g. ``がく`` for ``学``).
+			If a reading-specific match exists it is returned; otherwise falls back
+			to the reading-agnostic entry.
 
 		Returns
 		-------
 		dict
-			Dict with keys ``jp``, ``en``, ``sentence_id``, ``has_audio``, and ``term_form`` (the form to highlight, e.g. 学[がく]).  Empty dict if no match found.
+			Dict with keys ``jp``, ``en``, ``sentence_id``, ``has_audio``, and
+			``term_form`` (the form to highlight, e.g. ``学[がく]``).  Empty dict
+			if no match found.
 		"""
 		if not search_term:
 			return {}
