@@ -482,7 +482,7 @@ def refine_tags(jmdict_tags_mapping: dict[str, str]) -> dict[str, str]:
 		"int": "interjection", # replacing "interjection (kandoushi)"
 		"exp": "expression", # replacing "expressions (phrases, clauses, etc.)"
 		"adv": "adverb", # replacing "adverb (fukushi)"
-
+		"abbr": "abbreviation"
 	}
 
 	jmdict_tags_mapping.update(changes)	
@@ -537,8 +537,9 @@ def prepare_word_record(df: pd.DataFrame, jmdict_tags_mapping: dict[str, str]) -
 	# rdf["grammar"] = rdf["grammar"].apply(lambda lst: [jmdict_tags_mapping[item] for item in lst])
 	rdf["grammar"] = rdf.apply(
 		lambda row: (
-			[jmdict_tags_mapping[item] for item in row["grammar"]] +
-			[jmdict_tags_mapping[item] for item in row["misc"] if item in formal_tags]
+			[jmdict_tags_mapping[item] for item in row["grammar"]] + # include grammar
+			[jmdict_tags_mapping[item] for item in row["misc"] if item in formal_tags] + # formal tags
+			[jmdict_tags_mapping[item] for item in row["misc"] if item == "abbr"] # include abbreviations, a separate section to grammar in the jmdict
 		),
 		axis=1
 	)
