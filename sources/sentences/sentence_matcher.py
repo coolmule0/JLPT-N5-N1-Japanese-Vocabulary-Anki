@@ -7,6 +7,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from utils import make_furigana
+
 # from .sentence_selector import TranscriptionThenShortestSelector
 
 SENTENCE_PAIRS_PATH = Path("original_data", "sentence_tatoeba", "jp-eng-sentence-pairs.tsv")
@@ -283,6 +285,7 @@ class SentenceMatcher:
 				not_matches += 1
 				continue
 			pair = self.pairs.loc[best.sentence_id]
+			best = self.fill_missing_terms(best, pair["jp_sentence"])
 			jp_reading = self.make_sentence_reading(best, term)
 			results.append({
 				"jp": jp_reading,
@@ -323,20 +326,12 @@ class SentenceMatcher:
 			elif token.reading:
 				if "#" in token.reading:
 					token.reading = self.lookup_reading(int(token.reading.lstrip("#")))
-				
-				if token.reading == token.headword:
-					# Same writing as reading (kana only?)
-					resulting_sentence.append(token.reading)
-				else:
-					resulting_sentence.append(f"{token.headword}[{token.reading}]")
+
+				resulting_sentence.append(make_furigana(token.headword, token.reading))
 			else:
 				# default reading from the jmdict. There should only be 1 result for the headword (otherwise the #nnnn format should have been used in the data)
-				if is_kana(token.headword):
-					# if it's a kana term, use that as-is.
-					resulting_sentence.append(token.headword)
-				else:
-					reading = self.lookup_reading(token.headword)
-					resulting_sentence.append(f"{token.headword}[{reading}]")
+				reading = self.lookup_reading(token.headword)
+				resulting_sentence.append(make_furigana(token.headword, reading))
 		
 		if markup and markup_idx == -1:
 			logging.debug("Error finding term {markup} to highlight")
@@ -369,6 +364,42 @@ class SentenceMatcher:
 			return self._id_index.get(str(query), str(query))
 		return self._reading_index.get(query, str(query))
 
-# matcher = SentenceMatcher()
-# matcher.query_index("学")
-# matcher.get_best_sentence("学")
+	def fill_missing_terms(self, indx_sent: IndexSentence, pairs_sent: str) -> IndexSentence:
+		"""Tries to find missing characters in the index sentence and add them as tokens."""
+		new_tokens = []
+		pos = 0
+
+		for token in indx_sent.tokens:
+			surface = token.actual_form_in_sentence or token.headword
+			start = pairs_sent.find(surface, pos)
+
+			if start == -1:
+				# Can't find surface form; skip token
+				continue
+
+			if start > pos:
+				# Gap of missing characters before this token
+				gap = pairs_sent[pos:start]
+				new_tokens.append(IndexToken(
+					headword=gap,
+					reading="",
+					sense=-1,
+					actual_form_in_sentence=gap,
+					suitable=False,
+				))
+
+			new_tokens.append(token)
+			pos = start + len(surface)
+
+		# Trailing gap after all tokens
+		if pos < len(pairs_sent):
+			gap = pairs_sent[pos:]
+			new_tokens.append(IndexToken(
+				headword=gap,
+				reading="",
+				sense=-1,
+				actual_form_in_sentence=gap,
+				suitable=False,
+			))
+
+		return IndexSentence(indx_sent.sentence_id, indx_sent.meaning_id, new_tokens)

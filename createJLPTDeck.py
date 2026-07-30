@@ -18,6 +18,7 @@ from jlpt_anki import AnkiPackage
 from sources.audio.kanjialive_audio import KaAudio
 from sources.audio.etl_audio import EtlAudio
 from sources.sentences.sentence_matcher import SentenceMatcher
+from utils import make_furigana
 
 ####################
 ## Extract/load data from files
@@ -210,83 +211,6 @@ def find_english_readings(entry: pd.DataFrame) -> list[list[str]]:
 			adds.append(gloss_texts)
 	
 	return (first_part, adds)
-
-def make_furigana(kanji: str, kana: str) -> str:
-	"""Generate a furigana word from associated kanji and kana. Is able to handle words with kana between the kanji.
-
-	Parameters
-	----------
-	kanji : str
-		Kanji of the word (can include kana as well)
-	kana : str
-		(hira/kata)kana of the word
-
-	Returns
-	-------
-	str
-		Kanji word with furigana
-	"""
-
-	if not kana:
-		assert False, "No kana reading provided."
-		return
-	if not kanji:
-		return kana
-	# what to put the furigana inside
-	f_l = "["
-	f_r = "]"
-
-	KANJI_PATTERN = r"[一-龯々０-９Ａ–Ｚ]+"
-	KANA_PATTERN = r"[ぁ-んァ-ヿ]+"
-
-	# keep track of extra character spaces that are 'eaten' by kanjis
-	tt = 0
-	# furigana-kanji lists
-	outWord = ""
-	lastMatchLoc = 0
-	fk = []
-	# for each kanji in the word
-	if kanji:
-		# Search over kanji
-		for m in re.finditer(KANJI_PATTERN, kanji):
-			kanjiWordPos = m.span()[0]
-			kanaWordPos = kanjiWordPos + tt
-
-			# find the next furigana(s) in the kanji word
-			searchLoc = m.span()[1]
-
-			# Search over hiragana and katakana
-			m2 = re.search(KANA_PATTERN, kanji[searchLoc:])
-			if m2:
-				# find this kana match in the kana word
-				searchLoc = searchLoc + tt
-				m3 = re.search(m2.group(), kana[searchLoc:])
-				# if no matching found, assume something wrong with the input
-				if not m3:
-					return ""
-
-				# get the kana between these
-				s = kana[kanaWordPos : searchLoc + m3.span()[0]]
-
-				# update number of kanas 'eaten' by kanjis
-				tt = tt + m3.span()[0]
-
-			else:
-				s = kana[kanaWordPos:]
-
-			# the furigana'd kanji string, separated by space
-			out = " " + m.group() + f_l + s + f_r
-			outWord = outWord + kanji[lastMatchLoc:kanjiWordPos] + out
-			fk.append(out)
-
-			# update position of last kanji searched
-			lastMatchLoc = m.span()[1]
-
-	# update the out word for tailing kanas
-	outWord = outWord + kanji[lastMatchLoc:]
-	if outWord == "":
-		logging.debug(f"Returning empty furigana-word for {kana}")
-	return outWord.strip()
 
 def filter_english_definitions(additional_lst: list[list[str]], primary_eng_defns: list[str]) -> list[str]:
 	"""Limit the additional english definitions obtained to parameters. 
