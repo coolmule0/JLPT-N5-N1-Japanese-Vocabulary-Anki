@@ -10,19 +10,19 @@ A script and Anki package for learning Japanese Language Vocabulary through flas
 
 Structured for the official Japanese Language Proficiency Test (JLPT). These flashcards are designed for use in a Spaced Repetition software such as [Anki](https://apps.ankiweb.net/). Anki helps manage when to review the flashcard according to how easy you found the question on the card. The flashcards are designed to help learn japanese vocabulary for all levels of Japanese, from beginners through to advanced native speaking.
 
-# Use the deck now
+# Want to use the deck now?
 
 ## Anki Web
 
-**Recommended approach**. To use the flashcards for learning straight away, head over to [JLPT-N5-N1 Japanese Vocabulary](https://ankiweb.net/shared/info/1550984460) and download Anki.
+**Recommended approach**. To use the flashcards for learning straight away, head over to [JLPT-N5-N1 Japanese Vocabulary](https://ankiweb.net/shared/info/1550984460) and download Anki and add this deck to your profile.
 
 ## Download files
 
 Visit the [Latest Releases](https://codeberg.org/coolmule0/JLPT-N5-N1-Japanese-Vocabulary-Anki/releasesreleases/latest) to download the raw anki files. Useful for manual import. Download `Core Japanese Vocabulary Extended.apkg` for the anki-ready deck with audio, `Core Japanese Vocabulary.apkg` for the smaller version without audio (but same vocab), and `full.csv` for the tabular version of every card in the deck.
 
-# Coding
+# Want to make changes to make it your own deck?
 
-The following is all related to the code for generating the deck.
+The following is all related to the code for generating the deck. This section is useful if you want to make adjustments, use different vocab, or alter which data sources are used, and more!
 
 ## Installing
 
@@ -46,7 +46,6 @@ Audio is available from [Kanji Alive](https://kanjialive.com/). They provide arc
 
 In addition to the above requirements, also install `requirements-dev.txt` which contains typing and linting.
 
-
 # Why this exists
 
 I viewed the JLPT exams as a clear objective to study for. They are official, and they come in multiple levels starting from beginner so each stage is a small achievable objective. Also, Anki was commonly touted for studying foreign languages. I was drawn to the simplicity and efficacy of Anki, as well as its mature community with plentiful resources. I was able to find a flashcard deck from a book I was using to study (Genki 1 and 2), and straight away I was learning vocab from the book.
@@ -59,17 +58,15 @@ I use these generated decks for my own vocabulary study, and aim to keep it rele
 
 It's been a challenge figuring out a way to keep the process repeatable, yet make changes to cards and entries when they are incorrect or could do with improvement.
 
-## Sources
-
-While studying I and others have noticed that just having the words can be difficult, especially at higher levels from N3 higher where context becomes important. My idea to help with this problem is to include an sentence displaying the word in the context of a sentence
-
 ## Further ideas
 
-There's always more I want to be doing with this. If you have some ideas you would like to see, drop a github issue, or Anki review.
+There's always more I want to be doing with this. If you have some ideas you would like to see, drop a [github issue](https://github.com/coolmule0/JLPT-N5-N1-Japanese-Vocabulary-Anki/issues/new), or [Anki review](https://ankiweb.net/shared/review/1550984460).
 
-An example extention idea is using one of the alternative JMDict language downloads. It isn't just english, containing multiple different languages. Can use the non-english meanings create a German-Japanese (say) language deck.
+One idea I would love to pursue is the development of JLPT vocab decks other than English. The JMDict, the go-to online Japanese dictionary, has entries for other languages than English. This repository could be adapted to pull alternative language sources, which could be great!
 
 # Studying tips
+
+Some of my opinions about how to make the most of studying Japanese and JLPT vocabulary using this deck.
 
 ### Recognition/Recall cards
 The deck includes Japanese -> English e.g. [川 -> River] (Recognition), as well as English -> Japanese [River -> 川] (Recall). This can be nice to get to grips when starting to study Japanese, but the English->Japanese can quickly can become frustrating and not as effective a tool as the Japanese->English. Dont' be afraid to remove the recall cards so you are only studying Japanese->English, epsecially if you are past the N5 or N4 level.

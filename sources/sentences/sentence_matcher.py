@@ -3,30 +3,36 @@
 import logging
 import re
 from pathlib import Path
+from dataclasses import dataclass
 
 import pandas as pd
 
-from .sentence_selector import TranscriptionThenShortestSelector
+# from .sentence_selector import TranscriptionThenShortestSelector
 
 SENTENCE_PAIRS_PATH = Path("original_data", "sentence_tatoeba", "jp-eng-sentence-pairs.tsv")
 SENTENCE_AUDIO_PATH = Path("original_data", "sentence_tatoeba", "sentences_with_audio.csv")
 OVERRIDES_PATH = Path("original_data", "sentence_tatoeba", "sentence_overrides.csv")
 TRANSCRIPTION_PATH = Path("original_data", "sentence_tatoeba", "jpn_transcriptions.tsv")
+INDICES_PATH = Path("original_data", "sentence_tatoeba", "jpn_indices.csv")
 
 MIN_SENTENCE_CHARS = 8  # Minimum Japanese characters to have meaningful context
 MAX_SENTENCE_CHARS = 45  # Total number of characters in the sentence. Want to avoid too long sentences that meander and lack the actual work to study
 
 _KANJI_RE = re.compile(r"[一-鿿㐀-䶿豈-\ufaff]")
 _TRANSCRIPT_RE = re.compile(r'\[([^\[\]|]+)\|([^\[\]|]+(?:\|[^\[\]|]+)*)\]')
+KANA_RE = re.compile(r'^[\u3040-\u30FF]+$')
 
+def is_kana(s):
+	return bool(KANA_RE.match(s))
 
 def _transform_transcription(text: str) -> str:
-    """Convert [kanji|r1|r2] → kanji[r1r2] with leading space, trim leading whitespace."""
-    def _replace(m: re.Match) -> str:
-        kanji = m.group(1)
-        reading = m.group(2).replace('|', '')
-        return f' {kanji}[{reading}]'
-    return _TRANSCRIPT_RE.sub(_replace, text).lstrip()
+	"""Convert [kanji|r1|r2] → kanji[r1r2] with leading space, trim leading whitespace."""
+	def _replace(m: re.Match) -> str:
+		kanji = m.group(1)
+		reading = m.group(2).replace('|', '')
+		return f' {kanji}[{reading}]'
+	return _TRANSCRIPT_RE.sub(_replace, text).lstrip()
+
 
 
 def _is_kanji(char: str) -> bool:
@@ -43,73 +49,6 @@ def _highlight_term(text: str, term: str) -> str:
 
 
 
-def _is_standalone_kanji(term: str, sentence: str, start: int, end: int) -> bool:
-	"""Check if a pure-kanji term appears as a standalone token, not embedded in a kanji compound.
-
-	A kanji term is considered standalone if the character immediately before it (if any) is not kanji and the character immediately after it (if any) is not kanji. Prevent indexing 玉 when it occurs inside Saitama, 郵便局 (post office), etc.
-	"""
-	if start > 0 and _is_kanji(sentence[start - 1]):
-		return False
-	return not (end < len(sentence) and _is_kanji(sentence[end]))
-
-
-def _is_pure_kanji(term: str) -> bool:
-	"""Check if a term consists entirely of kanji characters."""
-	return all(_is_kanji(c) for c in term)
-
-
-def _has_kanji(term: str) -> bool:
-	"""Check if a term contains at least one kanji character."""
-	return any(_is_kanji(c) for c in term)
-
-
-def _leading_kanji(term: str) -> str:
-	"""Return the leading kanji characters of a term.
-
-	E.g. ``飾る`` → ``飾``, ``行う`` → ``行``, ``ああ`` → ``""``.
-	"""
-	result = ""
-	for c in term:
-		if _is_kanji(c):
-			result += c
-		else:
-			break
-	return result
-
-
-def _kanji_reading(expression: str, reading_kana: str) -> str:
-	"""Extract only the kana reading for kanji characters in expression.
-
-	Identifies which positions in reading_kana correspond to kana characters in
-	expression (1:1 mapping for kana).  Returns the remaining characters which
-	belong to kanji.
-
-	E.g. expression ``飾る`` (1 kana char), reading ``かざる`` → ``かざ``.
-	     expression ``番号`` (0 kana chars), reading ``ばんごう`` → ``ばんごう``.
-	     expression ``ああ`` (2 kana chars), reading ``ああ`` → ``""``.
-	"""
-	kana_count = sum(1 for c in expression if not _is_kanji(c))
-	if kana_count == 0:
-		return reading_kana
-	# The last kana_count characters of reading_kana correspond to kana in expression.
-	return reading_kana[:-kana_count]
-
-
-def _extract_reading(text: str, pos: int, term_len: int) -> str:
-	"""Extract the furigana reading following a term in transformed text.
-
-	Given text like ``...学[がく]習...`` and the position/length of ``学``,
-	returns ``がく``. Returns empty string if no furigana brackets follow.
-	"""
-	after = text[pos + term_len : pos + term_len + 1]
-	if after != "[":
-		return ""
-	end = text.find("]", pos + term_len)
-	if end == -1:
-		return ""
-	return text[pos + term_len + 1 : end]
-
-
 def _load_sentence_pairs() -> pd.DataFrame:
 	"""Load the Tatoeba JP-EN sentence pairs TSV."""
 	df = pd.read_csv(
@@ -120,22 +59,6 @@ def _load_sentence_pairs() -> pd.DataFrame:
 	)
 	# Deduplicate Japanese sentences, keeping first occurrence
 	df = df.drop_duplicates(subset="jp_sentence", keep="first")
-	return df
-
-def _load_sentence_transcription() -> pd.DataFrame:
-	"""Load transcriptions, keep only sentence_id, username, transcription.
-
-	Returns a column `has_username` indicating whether the username is non-empty.
-	"""
-	df = pd.read_csv(
-		TRANSCRIPTION_PATH,
-		sep="\t",
-		header=None,
-		names=["sentence_id", "language", "script_name", "username", "transcription"],
-	)
-	df = df[["sentence_id", "username", "transcription"]]
-	df["has_username"] = df["username"].notna() & (df["username"].str.strip() != "")
-	df = df.drop_duplicates(subset="sentence_id", keep="first")
 	return df
 
 def _load_sentence_audio() -> pd.DataFrame:
@@ -150,283 +73,302 @@ def _load_sentence_audio() -> pd.DataFrame:
 	df = df.drop_duplicates(subset="sentence_id", keep="first")
 	return df
 
-
-def _load_overrides() -> pd.DataFrame:
-	"""Load manual sentence overrides from CSV.
-
-	Returns empty DataFrame if the file does not exist or is empty.
-	Expected columns: jmdict_seq, example_jp, example_en, example_sentence_id (optional)
-	"""
-	if not OVERRIDES_PATH.exists():
-		return pd.DataFrame()
-	df = pd.read_csv(OVERRIDES_PATH)
+def _load_sentence_indices() -> pd.DataFrame:
+	df = pd.read_csv(
+		INDICES_PATH,
+		sep="\t",
+		header=None,
+		names=["sentence_id", "meaning_id", "sentence_text"],
+	)
 	return df
 
+
+@dataclass
+class IndexToken:
+	headword: str
+	reading: str
+	sense: int
+	actual_form_in_sentence: str
+	suitable: bool
+
+@dataclass
+class IndexSentence:
+	sentence_id: int
+	meaning_id: int
+	tokens: list[IndexToken]
+
+	"""Get the word token for a sentence"""
+	def get_token(self, headword: str) -> IndexToken:
+		for it in self.tokens:
+			if it.headword == headword:
+				return it
+	@property
+	def length(self) -> int:
+		return sum(len(t.headword) for t in self.tokens)
+
+
+# Token pattern: headword, optional (reading), optional [sense], optional {surface}, optional ~, optional |digit
+_TOKEN_RE = re.compile(
+	r'^(?P<headword>[^(\[\]{~|]+)'
+	r'(?:\((?P<reading>[^)]*)\))?'
+	r'(?:\[(?P<sense>\d+)\])?'
+	r'(?:\{(?P<surface>[^}]*)\})?'
+	r'(?P<suitable>~)?'
+	r'(?:\|\d+)?'
+	r'$'
+)
+
+def parse_index_line(line: str) -> list[IndexToken]:
+	"""Given a sentence, get the jmdict entries within."""
+	tokens: list[IndexToken] = []
+	for raw in line.split():
+		m = _TOKEN_RE.match(raw)
+		if not m:
+			continue
+		tokens.append(IndexToken(
+			headword=m.group("headword"),
+			reading=m.group("reading") or "",
+			sense=int(m.group("sense")) if m.group("sense") else -1,
+			actual_form_in_sentence=m.group("surface") or "",
+			suitable=m.group("suitable") == "~",
+		))
+	return tokens
 
 class SentenceMatcher:
 	"""Matches Tatoeba sentences to vocab words and picks the best one."""
 
-	def __init__(self, search_terms: set[str]) -> None:
+	def __init__(self, jmdict_data: dict) -> None:
 		logging.info("Loading Tatoeba sentence data...")
 		self.pairs = _load_sentence_pairs()
+		self.pairs = self.pairs.set_index("sentence_id")
 		self.audio = _load_sentence_audio()
-		self.transcriptions = _load_sentence_transcription()
+		self.indices = _load_sentence_indices()
+		self.jmdict_data = jmdict_data
 
 		self.audio_ids = set(self.audio["sentence_id"].unique())
 
-		trans_with_user = self.transcriptions[self.transcriptions["has_username"]]
-		trans_no_user = self.transcriptions[~self.transcriptions["has_username"]]
-		self.trans_user_ids = set(trans_with_user["sentence_id"].unique())
-		self.trans_no_user_ids = set(trans_no_user["sentence_id"].unique())
-		self.transcription_map = dict(
-			zip(self.transcriptions["sentence_id"], self.transcriptions["transcription"])
-		)
+		logging.debug("Building JMDict reading index...")
+		self._reading_index = self._build_reading_index()
+		self._id_index = self._build_id_index()
 
-		logging.info("Building word-to-sentence index...")
-		self._index = self._build_index(search_terms)
+		logging.debug("Building sentences data index...")
+		self._index = self._build_index()
+		self._word_index = self._build_word_index()
 
-		rank_counts = {0: 0, 1: 0, 2: 0}
-		for entry in self._index.values():
-			rank_counts[entry["t_rank"]] += 1
-		logging.info(
-			f"Sentence match distribution: "
-			f"{rank_counts[0]} with transcription (username), "
-			f"{rank_counts[1]} with transcription (no username), "
-			f"{rank_counts[2]} without transcription"
-		)
+	def query_index(self, search_word: str, suitable_only: bool = False) -> list[IndexSentence]:
+		"""Return all sentences that contain the given search word.
 
-	def _transcription_rank(self, sentence_id: int) -> int:
-		"""Return transcription priority rank: 0 = has username, 1 = no username, 2 = no transcription."""
-		if sentence_id in self.trans_user_ids:
-			return 0
-		elif sentence_id in self.trans_no_user_ids:
-			return 1
-		else:
-			return 2
+		Parameters
+		----------
+		search_word : str
+			word to search on. Return all sentences that include this word
+		suitable_only : bool, optional
+			choose only those marked suitable as a sentence (by the jmdict definition this should be at most 1 entry, though not enforces), by default False
 
-	def _build_index(self, search_terms: set[str]) -> dict:
-		"""Build a dict mapping (term, reading) to its best candidate sentence.
-
-		Keys are ``(term, reading)`` tuples where ``reading`` is ``""`` for raw
-		(no-furigana) sentences, or the kana reading extracted from a transcribed
-		furigana annotation.  For every Japanese sentence, both the raw text and
-		the transcribed text (if available) are scanned.  Among all candidates per
-		key the best is kept (preferring transcription with username, then without,
-		then shorter sentence).
+		Returns
+		-------
+		list[IndexSentence]
+			All the sentence that contain this word
 		"""
-		index: dict[tuple[str, str], dict] = {}
-		pure_kanji_terms = {t for t in search_terms if _is_pure_kanji(t)}
-		kanji_terms = {t for t in search_terms if _has_kanji(t)}
-		selector = TranscriptionThenShortestSelector()
+		results = self._word_index.get(search_word, [])
+		if suitable_only:
+			results = [s for s in results if s.get_token(search_word).suitable]
+		return results
+	
+	def get_best_sentence(self, headword: str) -> IndexSentence | None:
+		sentences = self.query_index(headword)
+		# no sentence found
+		if len(sentences) < 1:
+			return None
+		best_sentence = sentences[0]
+		for s in sentences[1:]:
+			if self.is_better(headword, best_sentence, s):
+				best_sentence = s
+		return best_sentence
+		
+	@staticmethod
+	def is_better(word: str, curr_best: IndexSentence, new: IndexSentence) -> bool:
+		"""true if the new sentence is a better fit """
+		curr_best_token = curr_best.get_token(word)
+		new_best_token = new.get_token(word)
+		# choose the first suitable-flagged sentence
+		if curr_best_token.suitable:
+			return False
+		if new_best_token.suitable:
+			return True
+		# choose the entry that has the sense/meaning closest to the main definition
+		new_sense = max(new_best_token.sense, 1)
+		cur_sense = max(curr_best_token.sense, 1)
+		if new_sense < cur_sense:
+			return True
+		# Otherwise shortest sentence
+		return new.length < curr_best.length
 
-		sentences = self.pairs.itertuples(index=False)
+	def _build_reading_index(self) -> dict[str, str]:
+		"""Build a kanji/kana text -> primary reading dict from jmdict."""
+		idx: dict[str, str] = {}
+		for w in self.jmdict_data["words"]:
+			reading = w["kana"][0]["text"] if w["kana"] else None
+			for k in w["kanji"]:
+				text = k["text"]
+				if text not in idx:
+					idx[text] = reading
+			if not w["kanji"]:
+				for k in w["kana"]:
+					text = k["text"]
+					if text not in idx:
+						idx[text] = reading
+		return idx
+
+	def _build_id_index(self) -> dict[str, str]:
+		"""Build an id -> primary reading dict from jmdict."""
+		idx: dict[str, str] = {}
+		for w in self.jmdict_data["words"]:
+			if w["kana"]:
+				idx[w["id"]] = w["kana"][0]["text"]
+		return idx
+
+	def _build_index(self) -> list[IndexSentence]:
+		"""_summary_
+
+		Returns
+		-------
+		list[IndexSentence]
+			all the sentences decomposed into word tokens
+		"""
+		sentenceIndeces = []
+		sentences = self.indices.itertuples(index=False)
 		for row in sentences:
-			jp = row.jp_sentence
-			length = len(jp)
-			if length < MIN_SENTENCE_CHARS or length > MAX_SENTENCE_CHARS:
+			# Some sentence might not have an english meaning - skip them
+			if row.meaning_id <= 0:
 				continue
+			jp = row.sentence_text
+			
+			# Limit sentence by size
+			# length = len(jp)
+			# if length < MIN_SENTENCE_CHARS or length > MAX_SENTENCE_CHARS:
+			# 	continue
 
 			has_audio = row.sentence_id in self.audio_ids
-			t_rank = self._transcription_rank(row.sentence_id)
+			
+			tokens = parse_index_line(jp)
+			i_s = IndexSentence(row.sentence_id, row.meaning_id, tokens)
+			sentenceIndeces.append(i_s)
+		return sentenceIndeces
 
-			raw_transcription = self.transcription_map.get(row.sentence_id)
-			jp_transcribed = _transform_transcription(raw_transcription) if raw_transcription else None
-
-			for term in search_terms:
-				# Find the term in the raw sentence first.
-				pos = jp.find(term)
-				if pos == -1:
-					continue
-
-				# For kanji terms, skip if embedded in a compound.
-				if term in pure_kanji_terms and not _is_standalone_kanji(
-					term, jp, pos, pos + len(term)
-				):
-					continue
-
-				# Transcribed path — extract reading from furigana annotation (kanji only).
-				if jp_transcribed is not None:
-					reading = ""
-					lead = _leading_kanji(term) if term in kanji_terms else ""
-					if lead:
-						t_pos = jp_transcribed.find(lead)
-						if t_pos != -1:
-							reading = _extract_reading(jp_transcribed, t_pos, len(lead))
-					candidate = {
-						"jp": jp_transcribed,
-						"en": row.en_meaning,
-						"sentence_id": row.sentence_id,
-						"has_audio": has_audio,
-						"length": length,
-						"t_rank": t_rank,
-						"term_form": f"{lead}[{reading}]{term[len(lead):]}" if reading else term,
-					}
-					key = (term, reading)
-					if key not in index:
-						index[key] = candidate
-					elif selector.is_better(candidate, index[key]):
-						index[key] = candidate
-
-				# Raw path — only for sentences that have no transcription at all.
-				else:
-					candidate = {
-						"jp": jp,
-						"en": row.en_meaning,
-						"sentence_id": row.sentence_id,
-						"has_audio": has_audio,
-						"length": length,
-						"t_rank": t_rank,
-						"term_form": term,
-					}
-					key = (term, "")
-					if key not in index:
-						index[key] = candidate
-					elif selector.is_better(candidate, index[key]):
-						index[key] = candidate
-
-		return index
-
-	def find_sentence_for_word(self, search_term: str, reading: str = "") -> dict:
-		"""Find the best Tatoeba sentence containing the given word.
-
-		Parameters
-		----------
-		search_term : str
-			The kanji or kana form to search for.
-		reading : str
-			The kana reading to prefer for kanji terms (e.g. ``がく`` for ``学``).
-			If a reading-specific match exists it is returned; otherwise falls back
-			to the reading-agnostic entry.
-
-		Returns
-		-------
-		dict
-			Dict with keys ``jp``, ``en``, ``sentence_id``, ``has_audio``, and
-			``term_form`` (the form to highlight, e.g. ``学[がく]``).  Empty dict
-			if no match found.
-		"""
-		if not search_term:
-			return {}
-
-		result = None
-		if reading:
-			result = self._index.get((search_term, reading))
-		if result is None:
-			result = self._index.get((search_term, ""))
-		if not result:
-			return {}
-
-		return {
-			"jp": result["jp"],
-			"en": result["en"],
-			"sentence_id": int(result["sentence_id"]),
-			"has_audio": bool(result["has_audio"]),
-			"term_form": result.get("term_form", search_term),
-		}
+	def _build_word_index(self) -> dict[str, list[IndexSentence]]:
+		pairs_ids = set(self.pairs.index)
+		word_index: dict[str, list[IndexSentence]] = {}
+		for sentence in self._index:
+			if sentence.sentence_id not in pairs_ids:
+				continue
+			seen: set[str] = set()
+			for token in sentence.tokens:
+				if token.headword not in seen:
+					word_index.setdefault(token.headword, []).append(sentence)
+					seen.add(token.headword)
+		return word_index
 
 	def match_all(self, df: pd.DataFrame) -> pd.DataFrame:
-		"""Add example sentence columns to the vocabulary DataFrame.
-
-		Adds columns: example_jp, example_en, example_sentence_id, example_has_audio
-
-		Parameters
-		----------
-		df : pd.DataFrame
-			Must have columns "expression" and "reading".
-
-		Returns
-		-------
-		pd.DataFrame
-			df with new sentence columns appended.
-		"""
 		results = []
+		not_matches = 0
 		total = len(df)
 		for i, row in df.iterrows():
 			if i % 500 == 0:
 				logging.debug(f"Matching sentences: {i}/{total}")
-			term = row["expression"] if "[" in row.get("reading", "") else row.get("reading", "")
-			reading_kana = row.get("reading_kana", "")
-			if _has_kanji(term) and reading_kana:
-				reading = _kanji_reading(term, reading_kana)
-			else:
-				reading = ""
-			results.append(self.find_sentence_for_word(term, reading))
+			term = row["expression"]
+			best = self.get_best_sentence(term)
+			if best is None:
+				results.append({"jp": "", "en": ""})
+				not_matches += 1
+				continue
+			pair = self.pairs.loc[best.sentence_id]
+			jp_reading = self.make_sentence_reading(best, term)
+			results.append({
+				"jp": jp_reading,
+				"en": pair["en_meaning"],
+			})
 
+		logging.debug(f"Not matched sentences: {not_matches}/{total} entries")
 		rdf = df.copy()
 		rdf["example_jp"] = [r.get("jp", "") for r in results]
 		rdf["example_en"] = [r.get("en", "") for r in results]
-		rdf["example_sentence_id"] = [r.get("sentence_id", None) for r in results]
-		rdf["example_has_audio"] = [r.get("has_audio", False) for r in results]
-
-		# Apply manual overrides
-		rdf = self._apply_overrides(rdf)
-
-		# Highlight matched term in example sentences
-		for i, row in rdf.iterrows():
-			if not row["example_jp"]:
-				continue
-			term_form = results[i].get("term_form", "")
-			if not term_form:
-				continue
-			rdf.at[i, "example_jp"] = _highlight_term(row["example_jp"], term_form)
-
-		matched = rdf["example_jp"].ne("").sum()
-		with_audio = rdf["example_has_audio"].sum()
-		logging.info(
-			f"Matched {matched}/{total} words to sentences "
-			f"({with_audio} with audio)"
-		)
 
 		return rdf
 
-	def _apply_overrides(self, rdf: pd.DataFrame) -> pd.DataFrame:
-		"""Replace auto-matched sentences with manual overrides.
-
-		Reads overrides from a CSV keyed on jmdict_seq. Any non-empty column in the override row replaces the corresponding auto-matched value.
-		"""
-		overrides = _load_overrides()
-		if overrides.empty:
-			return rdf
-
-		required = {"jmdict_seq", "example_jp", "example_en"}
-		missing = required - set(overrides.columns)
-		if missing:
-			logging.warning(f"Override file missing columns: {missing}")
-			return rdf
-
-		for _, row in overrides.iterrows():
-			seq = row["jmdict_seq"]
-			mask = rdf["jmdict_seq"] == seq
-			if not mask.any():
-				logging.debug(f"Override jmdict_seq {seq} not found in vocabulary")
-				continue
-
-			if pd.notna(row.get("example_jp")) and row["example_jp"] != "":
-				rdf.loc[mask, "example_jp"] = row["example_jp"]
-			if pd.notna(row.get("example_en")) and row["example_en"] != "":
-				rdf.loc[mask, "example_en"] = row["example_en"]
-			if pd.notna(row.get("example_sentence_id")):
-				rdf.loc[mask, "example_sentence_id"] = int(row["example_sentence_id"])
-			if pd.notna(row.get("example_has_audio")):
-				rdf.loc[mask, "example_has_audio"] = bool(row["example_has_audio"])
-
-		overridden = overrides.shape[0]
-		logging.info(f"Applied {overridden} manual sentence override(s)")
-		return rdf
-
-	def download_sentence_audio(self, df: pd.DataFrame) -> pd.DataFrame:
-		"""Mark sentence audio availability (Tatoeba audio not available for direct download).
+	def make_sentence_reading(self, sentence: IndexSentence, markup: str = "") -> str:
+		""" Take sentence tokens and make a furigana reading sentence of it.
+		
+		NOTE: Won't provide furigana for cases where the token has a conjugated kanji form
 
 		Parameters
 		----------
-		df : pd.DataFrame
-			Must have columns example_sentence_id and example_has_audio.
+		sentence : IndexSentence
+			The sentence and tokens of the word within for creating the sentence
+		markup : str, optional
+			If one of the words/terms should be wrapped in <mark> tags to make them more visible in html rendering, by default ""
 
 		Returns
 		-------
-		pd.DataFrame
-			df with new column example_audio_path (always NaN since Tatoeba	audio is not available for direct download).
+		str
+			_description_
 		"""
-		rdf = df.copy()
-		rdf["example_audio_path"] = pd.NA
-		return rdf
+		resulting_sentence = []
+		markup_idx = -1 # which word element to mark up
+		for i, token in enumerate(sentence.tokens):
+			if token.headword == markup:
+				markup_idx = i
+			if token.actual_form_in_sentence:
+				resulting_sentence.append(token.actual_form_in_sentence)
+			elif token.reading:
+				if "#" in token.reading:
+					token.reading = self.lookup_reading(int(token.reading.lstrip("#")))
+				
+				if token.reading == token.headword:
+					# Same writing as reading (kana only?)
+					resulting_sentence.append(token.reading)
+				else:
+					resulting_sentence.append(f"{token.headword}[{token.reading}]")
+			else:
+				# default reading from the jmdict. There should only be 1 result for the headword (otherwise the #nnnn format should have been used in the data)
+				if is_kana(token.headword):
+					# if it's a kana term, use that as-is.
+					resulting_sentence.append(token.headword)
+				else:
+					reading = self.lookup_reading(token.headword)
+					resulting_sentence.append(f"{token.headword}[{reading}]")
+		
+		if markup and markup_idx == -1:
+			logging.debug("Error finding term {markup} to highlight")
+
+		result = ""
+		for i, sent_elem in enumerate(resulting_sentence):
+			if i == markup_idx:
+				# add mark to this element
+				result += f"<mark>{sent_elem}</mark>"
+			elif "[" in sent_elem:
+				result += " " + sent_elem
+			else:
+				result += sent_elem
+		return result.lstrip()
+
+	def lookup_reading(self, query: str | int) -> str:
+		"""Look up the reading of a word by ID or headword.
+		
+		Parameters
+		----------
+		query : str | int
+			Either a JMDict ID (int or numeric string) or a headword (kanji/kana).
+		
+		Returns
+		-------
+		str
+			The kana reading, or the query itself if not found.
+		"""
+		if isinstance(query, int) or (isinstance(query, str) and query.isdigit()):
+			return self._id_index.get(str(query), str(query))
+		return self._reading_index.get(query, str(query))
+
+# matcher = SentenceMatcher()
+# matcher.query_index("学")
+# matcher.get_best_sentence("学")

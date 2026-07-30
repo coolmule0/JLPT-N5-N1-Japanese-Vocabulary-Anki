@@ -51,7 +51,7 @@ def extract_jlpt_csvs_from_folder(folder_path: Path) -> pd.DataFrame:
 	merged_df = pd.concat(dfs, ignore_index=True)
 	return merged_df
 
-def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str, str]]:
+def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str, str], dict]:
 	"""Unzip and extract the jm_dictionary in zipped json format.
 
 	Parameters
@@ -61,8 +61,8 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str,
 
 	Returns
 	-------
-	tuple[pd.DataFrame, dict[str, str]]
-		DataFrame version of the dictionary, and a mapping of the tags used in the dictionary to a more verbose human-understandable explanation
+	tuple[pd.DataFrame, dict[str, str], dict]
+		DataFrame version of the dictionary, and a mapping of the tags used in the dictionary to a more verbose human-understandable explanation, and the raw json as a dict
 
 	Raises
 	------
@@ -99,7 +99,7 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str,
 	# What the short tags used in the dictionary mean
 	jmdict_tags_mapping = data["tags"]
 
-	return (jmdict, jmdict_tags_mapping)
+	return (jmdict, jmdict_tags_mapping, data)
 
 def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
 	"""Check what audio files already exist.
@@ -127,17 +127,17 @@ def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
 
 	return pd.DataFrame(audio_files_dicts, columns=["wani_audio_path", "jmdict_seq"])
 
-def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]:
+def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame, dict]:
 	"""Extract data from sources.
 
 	Returns
 	-------
-	tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
+	tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame, dict]
 		The various data sources.
 	"""
 
 	# Extract dictionary from json
-	jmdict, jmdict_tags_mapping = load_jmdict_json_zip(Path("original_data/jmdict-eng-3.6.1.zip"))
+	jmdict, jmdict_tags_mapping, jmdict_dict = load_jmdict_json_zip(Path("original_data/jmdict-eng-3.6.1.zip"))
 	logging.info("Extracted jmdict from zipped json.")
 
 	# Extract JLPT-by-level from .csv(s)
@@ -152,7 +152,7 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame]
 	# Audio
 
 
-	return df, jmdict, jmdict_tags_mapping, wani_audio
+	return df, jmdict, jmdict_tags_mapping, wani_audio, jmdict_dict
 
 ####################
 ## Transform helpers
@@ -564,7 +564,7 @@ def finalise(df: pd.DataFrame) -> pd.DataFrame:
 	rdf = df.copy()
 
 	# Column name tidy
-	rdf = rdf.drop(["kana", "kanji", "waller_definition", "additional", "misc", "reading_kanji", "reading_kana", "usually_kana", "formality", "example_sentence_id", "example_has_audio"], axis=1)
+	rdf = rdf.drop(["kana", "kanji", "waller_definition", "additional", "misc", "reading_kanji", "reading_kana", "usually_kana", "formality"], axis=1)
 	rdf = rdf.rename({"reduced_additional": "additional"}, axis=1)
 
 	# Data checks have expected structure for anki import
@@ -637,7 +637,7 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 	# Return df with the designated rows dropped
 	return df.drop(index=set(drop_indices))
 
-def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame, audio_source: EtlAudio) -> pd.DataFrame:
+def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame, audio_source: EtlAudio, jmdict_dict: dict) -> pd.DataFrame:
 	"""Transform the extracted data, ready for loading.
 
 	Parameters
@@ -683,9 +683,9 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 	search_terms = set(rdf.apply(
 		lambda x: x["expression"] if "[" in x["reading"] else x["reading"], axis=1
 	))
-	matcher = SentenceMatcher(search_terms)
+	matcher = SentenceMatcher(jmdict_dict)
 	rdf = matcher.match_all(rdf)
-	rdf = matcher.download_sentence_audio(rdf)
+	# rdf = matcher.download_sentence_audio(rdf)
 
 	rdf = finalise(rdf)
 
@@ -733,7 +733,7 @@ def run() -> None:
 	# logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s: %(message)s")
 
 	logging.info("Extracting info from files...")
-	df, jmdict, jmdict_tags_mapping, wani_audio = extract()
+	df, jmdict, jmdict_tags_mapping, wani_audio, jmdict_dict = extract()
 
 	# TEMP:
 	# ka_m = KaAudio()
@@ -743,7 +743,7 @@ def run() -> None:
 
 	# Transform/clean these csvs for use
 	logging.info("Transforming data...")
-	df = transform(df, jmdict, jmdict_tags_mapping, wani_audio, KaAudio())
+	df = transform(df, jmdict, jmdict_tags_mapping, wani_audio, KaAudio(), jmdict_dict)
 
 	# Transform/prepare the dataframe for use as anki flashcards
 	logging.info("Finalising for anki...")
@@ -756,7 +756,8 @@ def setup_logging(level: str):
 
 	logging.basicConfig(
 		level=numeric_level,
-		format="%(asctime)s - %(levelname)s: %(message)s"
+		format="%(asctime)s - %(levelname)s: %(message)s",
+		force=True
 	)
 
 if __name__ == "__main__":
