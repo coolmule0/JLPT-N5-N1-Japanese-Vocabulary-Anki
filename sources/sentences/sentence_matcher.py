@@ -20,36 +20,43 @@ INDICES_PATH = Path("original_data", "sentence_tatoeba", "jpn_indices.csv")
 MIN_SENTENCE_CHARS = 8  # Minimum Japanese characters to have meaningful context
 MAX_SENTENCE_CHARS = 45  # Total number of characters in the sentence. Want to avoid too long sentences that meander and lack the actual work to study
 
-_KANJI_RE = re.compile(r"[一-鿿㐀-䶿豈-\ufaff]")
-_TRANSCRIPT_RE = re.compile(r'\[([^\[\]|]+)\|([^\[\]|]+(?:\|[^\[\]|]+)*)\]')
 KANA_RE = re.compile(r'^[\u3040-\u30FF]+$')
 
-def is_kana(s):
-	return bool(KANA_RE.match(s))
+@dataclass
+class IndexToken:
+	headword: str
+	reading: str
+	sense: int
+	actual_form_in_sentence: str
+	suitable: bool
 
-def _transform_transcription(text: str) -> str:
-	"""Convert [kanji|r1|r2] → kanji[r1r2] with leading space, trim leading whitespace."""
-	def _replace(m: re.Match) -> str:
-		kanji = m.group(1)
-		reading = m.group(2).replace('|', '')
-		return f' {kanji}[{reading}]'
-	return _TRANSCRIPT_RE.sub(_replace, text).lstrip()
+@dataclass
+class IndexSentence:
+	sentence_id: int
+	meaning_id: int
+	tokens: list[IndexToken]
 
+	"""Get the word token for a sentence"""
+	def get_token(self, headword: str) -> IndexToken:
+		for it in self.tokens:
+			if it.headword == headword:
+				return it
+	@property
+	def length(self) -> int:
+		return sum(len(t.headword) for t in self.tokens)
 
-
-def _is_kanji(char: str) -> bool:
-	"""Check if a single character is a CJK unified ideograph (kanji)."""
-	return _KANJI_RE.fullmatch(char) is not None
-
-
-def _highlight_term(text: str, term: str) -> str:
-	"""Wrap the first occurrence of term in <mark> tags."""
-	pos = text.find(term)
-	if pos == -1:
-		return text
-	return text[:pos] + '<mark>' + term + '</mark>' + text[pos + len(term):]
-
-
+# The regex style for an entry in the jpn_indices.csv file
+# See https://www.edrdg.org/wiki/Sentence-Dictionary_Linking.html#Index_Format for specification
+# Token pattern: headword, optional (reading), optional [sense], optional {surface}, optional ~, optional |digit
+_TOKEN_RE = re.compile(
+	r'^(?P<headword>[^(\[\]{~|]+)'
+	r'(?:\((?P<reading>[^)]*)\))?'
+	r'(?:\[(?P<sense>\d+)\])?'
+	r'(?:\{(?P<surface>[^}]*)\})?'
+	r'(?P<suitable>~)?'
+	r'(?:\|\d+)?'
+	r'$'
+)
 
 def _load_sentence_pairs() -> pd.DataFrame:
 	"""Load the Tatoeba JP-EN sentence pairs TSV."""
@@ -85,40 +92,6 @@ def _load_sentence_indices() -> pd.DataFrame:
 	return df
 
 
-@dataclass
-class IndexToken:
-	headword: str
-	reading: str
-	sense: int
-	actual_form_in_sentence: str
-	suitable: bool
-
-@dataclass
-class IndexSentence:
-	sentence_id: int
-	meaning_id: int
-	tokens: list[IndexToken]
-
-	"""Get the word token for a sentence"""
-	def get_token(self, headword: str) -> IndexToken:
-		for it in self.tokens:
-			if it.headword == headword:
-				return it
-	@property
-	def length(self) -> int:
-		return sum(len(t.headword) for t in self.tokens)
-
-
-# Token pattern: headword, optional (reading), optional [sense], optional {surface}, optional ~, optional |digit
-_TOKEN_RE = re.compile(
-	r'^(?P<headword>[^(\[\]{~|]+)'
-	r'(?:\((?P<reading>[^)]*)\))?'
-	r'(?:\[(?P<sense>\d+)\])?'
-	r'(?:\{(?P<surface>[^}]*)\})?'
-	r'(?P<suitable>~)?'
-	r'(?:\|\d+)?'
-	r'$'
-)
 
 def parse_index_line(line: str) -> list[IndexToken]:
 	"""Given a sentence, get the jmdict entries within."""
@@ -177,11 +150,35 @@ class SentenceMatcher:
 			results = [s for s in results if s.get_token(search_word).suitable]
 		return results
 	
-	def get_best_sentence(self, headword: str) -> IndexSentence | None:
+	def get_best_sentence(self, headword: str, hiragana_reading: str = "") -> IndexSentence | None:
+		"""Find the best sentence for the headword out of all available sentences that match
+
+		Parameters
+		----------
+		headword : str
+			the sentences to filter on. Must contain this term as the main word of any given token
+		hiragana_reading : str, optional
+			Useful if the word has multiple readings. Will not match sentences with differing readings to provided, by default ""
+
+		Returns
+		-------
+		IndexSentence | None
+			The best sentence for this search filter
+		"""
 		sentences = self.query_index(headword)
+		
+		# filter out those with wrong reading
+		if hiragana_reading:
+			sentences = [
+				s for s in sentences 
+				if s.get_token(headword).reading == hiragana_reading
+					or s.get_token(headword).reading == ""
+			]
+
 		# no sentence found
 		if len(sentences) < 1:
 			return None
+
 		best_sentence = sentences[0]
 		for s in sentences[1:]:
 			if self.is_better(headword, best_sentence, s):
@@ -279,7 +276,10 @@ class SentenceMatcher:
 			if i % 500 == 0:
 				logging.debug(f"Matching sentences: {i}/{total}")
 			term = row["expression"]
-			best = self.get_best_sentence(term)
+			if term == "積もる":
+				print("break here")
+			# Add a little extra logic for the reading_kana part in case (like in tests) there isn't a reading column. Usually expect a reading column for proper pipeline
+			best = self.get_best_sentence(term, row["reading_kana"] if "reading_kana" in df.columns else "")
 			if best is None:
 				results.append({"jp": "", "en": ""})
 				not_matches += 1

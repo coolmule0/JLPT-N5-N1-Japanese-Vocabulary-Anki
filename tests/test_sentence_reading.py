@@ -32,6 +32,8 @@ TEST_CASES = [
     ("郵便局", "あの～<mark>郵便局[ゆうびんきょく]</mark>はどちらでしょうか。"), # matches fully all 3 kanji where 2 kanjis +1 could also make a valid sentence
     ("喧嘩", "ケンと<mark>けんか</mark>したのか。"), # picks up proper nouns like ケン which aren't in the index list
     ("小さな", "その 犬[いぬ]は<mark>小[ちい]さな</mark> 男[おとこ]の 子[こ]に 向[む]かって 唸[うな]った。"), # furigana only displayed over the necessary kanji part, and cuts hiragana parts from the reading
+	("金", "<mark>金[かね]</mark>の 切[き]れ 目[め]が 縁[えん]の 切[き]れ 目[め]。", "かね"),
+	("金", "日本[にほん]シンクロ 界[かい]の 悲願[ひがん]である<mark>金[きん]</mark>には、 あと 一歩[いっぽ]で 届[とど]かなかった。", "きん"), # handle same expressions with different pronunciations and different meanings
 ]
 # ──────────────────────────────────────────────────────────────────────
 
@@ -44,9 +46,11 @@ def load_matcher():
 	return SentenceMatcher(jmdict_dict)
 
 
-def run_matcher(matcher, terms):
+def run_matcher(matcher, terms, reading_kana=None):
 	"""Run match_all on a list of terms and return results."""
 	df = pd.DataFrame({"expression": terms})
+	if reading_kana is not None:
+		df["reading_kana"] = reading_kana
 	result = matcher.match_all(df)
 	return result[["expression", "example_jp", "example_en"]]
 
@@ -57,9 +61,11 @@ class TestSentenceReading(unittest.TestCase):
 		cls.matcher = load_matcher()
 
 	def test_sentence_readings(self):
-		for term, expected in TEST_CASES:
+		for case in TEST_CASES:
+			term, expected = case[0], case[1]
+			reading_kana = case[2] if len(case) > 2 else None
 			with self.subTest(term=term):
-				result = run_matcher(self.matcher, [term])
+				result = run_matcher(self.matcher, [term], reading_kana)
 				actual = result["example_jp"].iloc[0]
 				self.assertEqual(actual, expected,
 				                 f"For term {term!r}: expected {expected!r}, got {actual!r}")
