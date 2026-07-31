@@ -14,7 +14,7 @@ def make_furigana_surface(surface: str, headword: str, reading: str) -> str:
 	kanji groups in the surface form.
 
 	e.g. surface='向かって', headword='向かう', reading='むかう'
-	     => '向[む]かって'
+		 => '向[む]かって'
 
 	Falls back to returning the surface unchanged if the kanji groups
 	don't align (different kanji used, or no kanji in headword).
@@ -34,6 +34,8 @@ def make_furigana_surface(surface: str, headword: str, reading: str) -> str:
 		if found_at == -1:
 			return surface
 		result += surface[surface_pos:found_at]
+		if result and not result.endswith(' '):
+			result += ' '
 		result += kanji_grp + '[' + grp_reading + ']'
 		surface_pos = found_at + len(kanji_grp)
 	result += surface[surface_pos:]
