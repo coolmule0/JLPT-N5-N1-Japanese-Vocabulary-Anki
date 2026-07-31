@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from utils import make_furigana
+from utils import make_furigana, make_furigana_surface
 
 # from .sentence_selector import TranscriptionThenShortestSelector
 
@@ -302,7 +302,8 @@ class SentenceMatcher:
 	def make_sentence_reading(self, sentence: IndexSentence, markup: str = "") -> str:
 		""" Take sentence tokens and make a furigana reading sentence of it.
 		
-		NOTE: Won't provide furigana for cases where the token has a conjugated kanji form
+		Provides furigana for conjugated forms by mapping the headword reading
+		onto the surface form's kanji groups.
 
 		Parameters
 		----------
@@ -322,7 +323,12 @@ class SentenceMatcher:
 			if token.headword == markup:
 				markup_idx = i
 			if token.actual_form_in_sentence:
-				resulting_sentence.append(token.actual_form_in_sentence)
+				reading = token.reading
+				if reading and "#" in reading:
+					reading = self.lookup_reading(int(reading.lstrip("#")))
+				elif not reading:
+					reading = self.lookup_reading(token.headword)
+				resulting_sentence.append(make_furigana_surface(token.actual_form_in_sentence, token.headword, reading))
 			elif token.reading:
 				if "#" in token.reading:
 					token.reading = self.lookup_reading(int(token.reading.lstrip("#")))
