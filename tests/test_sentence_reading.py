@@ -1,7 +1,7 @@
-"""Data-driven tests for make_sentence_reading output.
+"""Match search term to expected sentence output.
 
 Add entries to TEST_CASES to verify sentence furigana rendering.
-Each case: (term, expected_example_jp)
+Each case: (term, expected_example_jp, optional: specific reading of the term (in case of multiple))
 
 Run:
     pytest tests/test_sentence_reading.py -v
@@ -70,6 +70,3 @@ class TestSentenceReading(unittest.TestCase):
 				self.assertEqual(actual, expected,
 				                 f"For term {term!r}: expected {expected!r}, got {actual!r}")
 
-
-if __name__ == "__main__":
-	unittest.main()
