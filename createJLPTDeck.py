@@ -16,7 +16,6 @@ import pandas as pd
 
 from jlpt_anki import AnkiPackage
 from sources.audio.kanjialive_audio import KaAudio
-from sources.audio.etl_audio import EtlAudio
 from sources.sentences.sentence_matcher import SentenceMatcher
 from utils import make_furigana
 
@@ -561,7 +560,7 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 	# Return df with the designated rows dropped
 	return df.drop(index=set(drop_indices))
 
-def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame, audio_source: EtlAudio, jmdict_dict: dict) -> pd.DataFrame:
+def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame, audio_source: KaAudio, jmdict_dict: dict) -> pd.DataFrame:
 	"""Transform the extracted data, ready for loading.
 
 	Parameters
@@ -574,8 +573,8 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 		dictionary abbr tags to human explained
 	wani_audio : pd.DataFrame
 		columns with corresponding jmdict entry, and path saved at
-	audio_source : EtlAudio
-		audio pipeline
+	audio_source : KaAudio
+		audio source that adds audio_path to the dataframe
 
 	Returns
 	-------
@@ -600,7 +599,7 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 	rdf = drop_equivalent_rows(rdf)
 
 	# Add audio
-	rdf = audio_source.run(jmdict, rdf)
+	rdf = audio_source.add_audio(jmdict, rdf)
 
 	# Match Tatoeba example sentences
 	logging.info("Matching Tatoeba example sentences...")
@@ -653,17 +652,8 @@ def load(df: pd.DataFrame) -> None:
 def run() -> None:
 	"""The main extract-transform-load (ETL) loop"""
 
-	# Set logging level
-	# logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s: %(message)s")
-
 	logging.info("Extracting info from files...")
 	df, jmdict, jmdict_tags_mapping, wani_audio, jmdict_dict = extract()
-
-	# TEMP:
-	# ka_m = KaAudio()
-	# foo = ka_m.run(jmdict, df)
-	# kadf = kanjialive_audio.construct_KA_df()
-	# kanjialive_audio.enrich(kadf, jmdict)
 
 	# Transform/clean these csvs for use
 	logging.info("Transforming data...")

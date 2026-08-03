@@ -9,16 +9,12 @@ import pandas as pd
 
 from utils import make_furigana, make_furigana_surface
 
-# from .sentence_selector import TranscriptionThenShortestSelector
-
 SENTENCE_PAIRS_PATH = Path("original_data", "sentence_tatoeba", "jp-eng-sentence-pairs.tsv")
-SENTENCE_AUDIO_PATH = Path("original_data", "sentence_tatoeba", "sentences_with_audio.csv")
-OVERRIDES_PATH = Path("original_data", "sentence_tatoeba", "sentence_overrides.csv")
-TRANSCRIPTION_PATH = Path("original_data", "sentence_tatoeba", "jpn_transcriptions.tsv")
+# SENTENCE_AUDIO_PATH = Path("original_data", "sentence_tatoeba", "sentences_with_audio.csv")
 INDICES_PATH = Path("original_data", "sentence_tatoeba", "jpn_indices.csv")
 
-MIN_SENTENCE_CHARS = 8  # Minimum Japanese characters to have meaningful context
-MAX_SENTENCE_CHARS = 45  # Total number of characters in the sentence. Want to avoid too long sentences that meander and lack the actual work to study
+MIN_SENTENCE_CHARS = 0  # Minimum Japanese characters to have meaningful context
+MAX_SENTENCE_CHARS = 200  # Total number of characters in the sentence. Want to avoid too long sentences that meander and lack the actual work to study
 
 # KANA_RE = re.compile(r'^[\u3040-\u30FF]+$')
 NUMBERS_RE = re.compile(r'^[\uFF10-\uFF19]+$')
@@ -71,17 +67,17 @@ def _load_sentence_pairs() -> pd.DataFrame:
 	df = df.drop_duplicates(subset="jp_sentence", keep="first")
 	return df
 
-def _load_sentence_audio() -> pd.DataFrame:
-	"""Load sentences_with_audio.csv, keep only rows with a license."""
-	df = pd.read_csv(
-		SENTENCE_AUDIO_PATH,
-		sep="\t",
-		header=None,
-		names=["sentence_id", "audio_id", "username", "license", "username_url"],
-	)
-	df = df.dropna(subset=["license"])
-	df = df.drop_duplicates(subset="sentence_id", keep="first")
-	return df
+# def _load_sentence_audio() -> pd.DataFrame:
+# 	"""Load sentences_with_audio.csv, keep only rows with a license."""
+# 	df = pd.read_csv(
+# 		SENTENCE_AUDIO_PATH,
+# 		sep="\t",
+# 		header=None,
+# 		names=["sentence_id", "audio_id", "username", "license", "username_url"],
+# 	)
+# 	df = df.dropna(subset=["license"])
+# 	df = df.drop_duplicates(subset="sentence_id", keep="first")
+# 	return df
 
 def _load_sentence_indices() -> pd.DataFrame:
 	df = pd.read_csv(
@@ -117,11 +113,11 @@ class SentenceMatcher:
 		logging.info("Loading Tatoeba sentence data...")
 		self.pairs = _load_sentence_pairs()
 		self.pairs = self.pairs.set_index("sentence_id")
-		self.audio = _load_sentence_audio()
+		# self.audio = _load_sentence_audio()
 		self.indices = _load_sentence_indices()
 		self.jmdict_data = jmdict_data
 
-		self.audio_ids = set(self.audio["sentence_id"].unique())
+		# self.audio_ids = set(self.audio["sentence_id"].unique())
 
 		logging.debug("Building JMDict reading index...")
 		self._reading_index = self._build_reading_index()
@@ -245,11 +241,11 @@ class SentenceMatcher:
 			jp = row.sentence_text
 			
 			# Limit sentence by size
-			# length = len(jp)
-			# if length < MIN_SENTENCE_CHARS or length > MAX_SENTENCE_CHARS:
-			# 	continue
+			length = len(jp)
+			if length < MIN_SENTENCE_CHARS or length > MAX_SENTENCE_CHARS:
+				continue
 
-			has_audio = row.sentence_id in self.audio_ids
+			# has_audio = row.sentence_id in self.audio_ids
 			
 			tokens = parse_index_line(jp)
 			i_s = IndexSentence(row.sentence_id, row.meaning_id, tokens)

@@ -6,7 +6,8 @@ _Generating flashcards for studying for the official Japanese Language Proficien
 
 A script and Anki package for learning Japanese Language Vocabulary through flashcards.
 
-![An anki card](example_images/example_anki.png)
+![An anki card](docs/example_images/example_anki.png)
+![An anki card with an example sentence](docs/example_images/example_with_sentence.png)
 
 Structured for the official Japanese Language Proficiency Test (JLPT). These flashcards are designed for use in a Spaced Repetition software such as [Anki](https://apps.ankiweb.net/). Anki helps manage when to review the flashcard according to how easy you found the question on the card. The flashcards are designed to help learn japanese vocabulary for all levels of Japanese, from beginners through to advanced native speaking.
 
@@ -20,9 +21,13 @@ Structured for the official Japanese Language Proficiency Test (JLPT). These fla
 
 Visit the [Latest Releases](https://codeberg.org/coolmule0/JLPT-N5-N1-Japanese-Vocabulary-Anki/releasesreleases/latest) to download the raw anki files. Useful for manual import. Download `Core Japanese Vocabulary Extended.apkg` for the anki-ready deck with audio, `Core Japanese Vocabulary.apkg` for the smaller version without audio (but same vocab), and `full.csv` for the tabular version of every card in the deck.
 
+## Customise it
+
+Anki as a whole is great because of the ability to easily make changes to how information is presented. You can remove or change teh appearance of anything of the card by messing with the associated style.css or .html cards.
+
 # Want to make changes to make it your own deck?
 
-The following is all related to the code for generating the deck. This section is useful if you want to make adjustments, use different vocab, or alter which data sources are used, and more!
+The following is all related to the code for generating the deck. This section is useful if you want to make adjustments to the information on the cards, use different vocab, or alter which data sources are used, and more!
 
 ## Installing
 
@@ -39,7 +44,7 @@ pip install -r requirements.txt
 
 run `python createJLPTDeck.py`. This will generate a `.csv` and `.apkg` files in the `output` directory. The `.apkg` file is ready to be imported into Anki (use the "import from file" option). The two different `.apkg` files are the two different packages, one including audio (and hence a larger size). The `.csv` is a tabular format of each vocabulary card with all its associated information.
 
-Audio is available from [Kanji Alive](https://kanjialive.com/). They provide archive dowloads of all audio files in different formats. Download the data type of choice (e.g. mp3), extract it into `original_data/kanji_alive/audio-mp3` or whatever file name it recommends. Then the audio is ready to be included in cards which match
+<!-- Audio is available from [Kanji Alive](https://kanjialive.com/). They provide archive dowloads of all audio files in different formats. Download the data type of choice (e.g. mp3), extract it into `original_data/kanji_alive/audio-mp3` or whatever file name it recommends. Then the audio is ready to be included in cards which match -->
 
 
 ## Developing & Contributing
@@ -74,7 +79,7 @@ The deck includes Japanese -> English e.g. [川 -> River] (Recognition), as well
 ### Sentences
 Sentence information is most helpful if you have a grasp of japanese grammar and sentence structure. If in the early levels of study, sentences might seem complex and convoluted. They should be ignored or removed until you start finding the context of words becoming a little tricky, probably around N3.
 
-If you want to not include sentences, then you can edit the card format to not display them. It varies by your platform, but you need to go into the html file and remove occurences of {{example-en}} and {{example-jp}}. You can always add them back in by re-downloading the deck or manually at a later time without issue.
+If you want to not include sentences, then you can edit the card format to not display them. It varies by your platform, but you need to go into the corresponding html file for the card and remove occurences of {{example-en}} and {{example-jp}}. You can always add them back in manually, or by re-downloading the deck at a later time without issue.
 
 # Data Information
 

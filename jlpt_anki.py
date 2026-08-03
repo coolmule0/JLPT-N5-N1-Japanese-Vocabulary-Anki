@@ -163,7 +163,8 @@ class AnkiPackage:
 		example_jp = note.get("example_jp", "")
 		example_en = note.get("example_en", "")
 
-		my_note = JlptNote(
+		note_class = JlptNoteExtended if self.audio else JlptNoteCore
+		my_note = note_class(
 			model=self.model,
 			fields=[
 				note["expression"],
@@ -197,7 +198,7 @@ class AnkiPackage:
 
 		# # Ignore possible repeated entries
 		if my_note.guid in self.entries:
-			logging.debug(f"Not adding duplicate note (id: {note["jmdict_seq"]}, {note["reading"]})")
+			logging.debug(f"Not adding duplicate note (id: {note["jmdict_seq"]}, {note["reading"]}). Already in deck")
 			return
 
 		deck.add_note(my_note)
@@ -242,12 +243,19 @@ class AnkiPackage:
 	# 	digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
 	# 	return int(digest, 16)
 
-class JlptNote(genanki.Note):
+class JlptNoteCore(genanki.Note):
 	@property
 	def guid(self):
 		# fields[0] = expression. fields[2] = reading (hopefully).
 		# These should be enough to uniquely identify any card, even when other values are added and removed.
-		return genanki.guid_for(self.fields[0], self.fields[2])
+		return genanki.guid_for("core", self.fields[0], self.fields[2])
+
+class JlptNoteExtended(genanki.Note):
+	@property
+	def guid(self):
+		# fields[0] = expression. fields[2] = reading (hopefully).
+		# These should be enough to uniquely identify any card, even when other values are added and removed.
+		return genanki.guid_for("extended", self.fields[0], self.fields[2])
 
 # Deck IDs
 ## ID of the deck. Generated from random.randrange(1 << 30, 1 << 31), a fixed number for each model.
