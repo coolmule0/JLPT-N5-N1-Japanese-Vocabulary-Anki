@@ -34,6 +34,7 @@ TEST_CASES = [
     ("小さな", "その 犬[いぬ]は<mark>小[ちい]さな</mark> 男[おとこ]の 子[こ]に 向[む]かって 唸[うな]った。"), # furigana only displayed over the necessary kanji part, and cuts hiragana parts from the reading
 	("金", "<mark>金[かね]</mark>の 切[き]れ 目[め]が 縁[えん]の 切[き]れ 目[め]。", "かね"),
 	("金", "日本[にほん]シンクロ 界[かい]の 悲願[ひがん]である<mark>金[きん]</mark>には、 あと 一歩[いっぽ]で 届[とど]かなかった。", "きん"), # handle same expressions with different pronunciations and different meanings
+	("年齢","<mark>年齢[ねんれい]</mark>は１８ 歳[さい]です。"), # numbers like １８ (full-width numbers) shouldn't have a furigana reading.
 ]
 # ──────────────────────────────────────────────────────────────────────
 

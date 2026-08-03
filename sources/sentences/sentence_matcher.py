@@ -20,7 +20,8 @@ INDICES_PATH = Path("original_data", "sentence_tatoeba", "jpn_indices.csv")
 MIN_SENTENCE_CHARS = 8  # Minimum Japanese characters to have meaningful context
 MAX_SENTENCE_CHARS = 45  # Total number of characters in the sentence. Want to avoid too long sentences that meander and lack the actual work to study
 
-KANA_RE = re.compile(r'^[\u3040-\u30FF]+$')
+# KANA_RE = re.compile(r'^[\u3040-\u30FF]+$')
+NUMBERS_RE = re.compile(r'^[\uFF10-\uFF19]+$')
 
 @dataclass
 class IndexToken:
@@ -276,8 +277,6 @@ class SentenceMatcher:
 			if i % 500 == 0:
 				logging.debug(f"Matching sentences: {i}/{total}")
 			term = row["expression"]
-			if term == "積もる":
-				print("break here")
 			# Add a little extra logic for the reading_kana part in case (like in tests) there isn't a reading column. Usually expect a reading column for proper pipeline
 			best = self.get_best_sentence(term, row["reading_kana"] if "reading_kana" in df.columns else "")
 			if best is None:
@@ -326,6 +325,9 @@ class SentenceMatcher:
 				reading = token.reading
 				if reading and "#" in reading:
 					reading = self.lookup_reading(int(reading.lstrip("#")))
+				elif re.match(NUMBERS_RE, token.actual_form_in_sentence): # only full-width numbers - no need for furigana
+					resulting_sentence.append(token.actual_form_in_sentence)
+					continue
 				elif not reading:
 					reading = self.lookup_reading(token.headword)
 				resulting_sentence.append(make_furigana_surface(token.actual_form_in_sentence, token.headword, reading))
