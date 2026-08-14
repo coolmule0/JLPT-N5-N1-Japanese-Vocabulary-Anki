@@ -48,7 +48,7 @@ Again, Anki has a wealth of customisation and it's easy to remove sentence infor
 
 <h4>Smaller deck size wanted</h4>
 
-An alternative to this deck is available at https://ankiweb.net/shared/info/1550984460. It contains the same words, just without any audio. Useful in case you don't want the larger deck size of this one.
+An alternative to this deck is available at <a href="https://ankiweb.net/shared/info/1550984460">https://ankiweb.net/shared/info/1550984460</a>. It contains the same words, just without any audio. Useful in case you don't want the larger deck size of this one.
 
 <h3>Open Source </h3>
 
