@@ -1,0 +1,4 @@
+original_data/kanji_alive/audio-mp3.zip filter=lfs diff=lfs merge=lfs -text
+original_data/kanji_alive/ka_data.csv filter=lfs diff=lfs merge=lfs -text
+original_data/jmdict-eng-3.6.1.zip filter=lfs diff=lfs merge=lfs -text
+original_data/sentence_tatoeba/jp-eng-sentence-pairs.tsv filter=lfs diff=lfs merge=lfs -text

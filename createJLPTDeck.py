@@ -101,38 +101,38 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str,
 
 	return (jmdict, jmdict_tags_mapping, data)
 
-def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
-	"""Check what audio files already exist.
+# def extract_saved_wanikani_audio(audio_folder: Path) -> pd.DataFrame:
+# 	"""Check what audio files already exist.
 
-	Should be named with as a "interger.ext" e.g. 13456744.mp3, where the integer corresponds to the jmdict entry for the word
+# 	Should be named with as a "interger.ext" e.g. 13456744.mp3, where the integer corresponds to the jmdict entry for the word
 
-	Parameters
-	----------
-	audio_folder : Path
-		Folder to search within for audio.
+# 	Parameters
+# 	----------
+# 	audio_folder : Path
+# 		Folder to search within for audio.
 
-	Returns
-	-------
-	pd.DataFrame
-		A row for each existing audio file.
-	"""
+# 	Returns
+# 	-------
+# 	pd.DataFrame
+# 		A row for each existing audio file.
+# 	"""
 
-	audio_files_dicts = []
-	for child in audio_folder.iterdir():
-		audio_file_dict = {
-			"wani_audio_path": child,
-			"jmdict_seq": int(child.stem),
-		}
-		audio_files_dicts.append(audio_file_dict)
+# 	audio_files_dicts = []
+# 	for child in audio_folder.iterdir():
+# 		audio_file_dict = {
+# 			"wani_audio_path": child,
+# 			"jmdict_seq": int(child.stem),
+# 		}
+# 		audio_files_dicts.append(audio_file_dict)
 
-	return pd.DataFrame(audio_files_dicts, columns=["wani_audio_path", "jmdict_seq"])
+# 	return pd.DataFrame(audio_files_dicts, columns=["wani_audio_path", "jmdict_seq"])
 
 def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame, dict]:
 	"""Extract data from sources.
 
 	Returns
 	-------
-	tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame, dict]
+	tuple[pd.DataFrame, pd.DataFrame, dict[str, str], dict]
 		The various data sources.
 	"""
 
@@ -143,16 +143,16 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame,
 	# Extract JLPT-by-level from .csv(s)
 	df = extract_jlpt_csvs_from_folder(Path("original_data"))
 	logging.info("Extracted JLPT words from csvs.")
-
+ 
 	# Extract any existing wanikani audio files
-	wani_audio_path = Path("original_data", "wanikani")
-	wani_audio_path.mkdir(parents=True, exist_ok=True)
-	wani_audio = extract_saved_wanikani_audio(wani_audio_path)
-	logging.info("Extracted existing wanikani audio.")
+	# wani_audio_path = Path("original_data", "wanikani")
+	# wani_audio_path.mkdir(parents=True, exist_ok=True)
+	# wani_audio = extract_saved_wanikani_audio(wani_audio_path)
+	# logging.info("Extracted existing wanikani audio.")
 	# Audio
 
 
-	return df, jmdict, jmdict_tags_mapping, wani_audio, jmdict_dict
+	return df, jmdict, jmdict_tags_mapping, jmdict_dict
 
 ####################
 ## Transform helpers
@@ -560,7 +560,7 @@ def drop_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
 	# Return df with the designated rows dropped
 	return df.drop(index=set(drop_indices))
 
-def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], wani_audio: pd.DataFrame, audio_source: KaAudio, jmdict_dict: dict) -> pd.DataFrame:
+def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[str, str], audio_source: KaAudio, jmdict_dict: dict) -> pd.DataFrame:
 	"""Transform the extracted data, ready for loading.
 
 	Parameters
@@ -571,8 +571,6 @@ def transform(df: pd.DataFrame, jmdict: pd.DataFrame, jmdict_tags_mapping: dict[
 		Dictionary
 	jmdict_tags_mapping : dict[str, str]
 		dictionary abbr tags to human explained
-	wani_audio : pd.DataFrame
-		columns with corresponding jmdict entry, and path saved at
 	audio_source : KaAudio
 		audio source that adds audio_path to the dataframe
 
@@ -653,11 +651,11 @@ def run() -> None:
 	"""The main extract-transform-load (ETL) loop"""
 
 	logging.info("Extracting info from files...")
-	df, jmdict, jmdict_tags_mapping, wani_audio, jmdict_dict = extract()
+	df, jmdict, jmdict_tags_mapping, jmdict_dict = extract()
 
 	# Transform/clean these csvs for use
 	logging.info("Transforming data...")
-	df = transform(df, jmdict, jmdict_tags_mapping, wani_audio, KaAudio(), jmdict_dict)
+	df = transform(df, jmdict, jmdict_tags_mapping, KaAudio(), jmdict_dict)
 
 	# Transform/prepare the dataframe for use as anki flashcards
 	logging.info("Finalising for anki...")

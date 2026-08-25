@@ -4,13 +4,19 @@ import logging
 import re
 from pathlib import Path
 from dataclasses import dataclass
+import tarfile
+import urllib.request
+
 
 import pandas as pd
 
 from utils import make_furigana, make_furigana_surface
 
+# If you want to get japanese-english sentence pairs you will need to go to https://tatoeba.org/en/downloads and generate a custom export of "sentence language: japanese; translation language: english" and manually add it here.
 SENTENCE_PAIRS_PATH = Path("original_data", "sentence_tatoeba", "jp-eng-sentence-pairs.tsv")
-# SENTENCE_AUDIO_PATH = Path("original_data", "sentence_tatoeba", "sentences_with_audio.csv")
+
+# indices file location and associated URL to download it
+tatoeba_indices_file_url = "https://downloads.tatoeba.org/exports/jpn_indices.tar.bz2"
 INDICES_PATH = Path("original_data", "sentence_tatoeba", "jpn_indices.csv")
 
 MIN_SENTENCE_CHARS = 0  # Minimum Japanese characters to have meaningful context
@@ -18,6 +24,7 @@ MAX_SENTENCE_CHARS = 200  # Total number of characters in the sentence. Want to 
 
 # KANA_RE = re.compile(r'^[\u3040-\u30FF]+$')
 NUMBERS_RE = re.compile(r'^[\uFF10-\uFF19]+$')
+
 
 @dataclass
 class IndexToken:
@@ -79,7 +86,19 @@ def _load_sentence_pairs() -> pd.DataFrame:
 # 	df = df.drop_duplicates(subset="sentence_id", keep="first")
 # 	return df
 
-def _load_sentence_indices() -> pd.DataFrame:
+def _load_sentence_indices(force_download = False) -> pd.DataFrame:
+	if force_download or not INDICES_PATH.is_file():
+		INDICES_PATH.parent.mkdir(parents=True, exist_ok=True)
+		archive_path = INDICES_PATH.parent / "jpn_indices.tar.bz2"
+		logging.debug(f"Downloading Tatoeba indices from {tatoeba_indices_file_url}")
+		urllib.request.urlretrieve(tatoeba_indices_file_url, archive_path)
+		with tarfile.open(archive_path, "r:bz2") as tar:
+			members = tar.getmembers()
+			if len(members) != 1 or members[0].name != "jpn_indices.csv":
+				raise ValueError(f"Unexpected archive contents: {[m.name for m in members]}")
+			tar.extractall(path=INDICES_PATH.parent)
+		archive_path.unlink()
+	
 	df = pd.read_csv(
 		INDICES_PATH,
 		sep="\t",
