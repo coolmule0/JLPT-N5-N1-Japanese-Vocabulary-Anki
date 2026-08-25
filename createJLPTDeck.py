@@ -85,7 +85,7 @@ def load_jmdict_json_zip(jmdict_zip_file: Path) -> tuple[pd.DataFrame, dict[str,
 			
 			path_name = z.extract(names[0], folder)
 			unzip_file = Path(path_name)
-			logging.debug(f"Extracted to: {unzip_file}")
+			logging.debug(f"Extracted jmdict_json to: {unzip_file}")
 	else:
 		logging.debug(f"Extraction skipped; jmdict json already exists: {unzip_file}")
 		
@@ -138,11 +138,11 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], pd.DataFrame,
 
 	# Extract dictionary from json
 	jmdict, jmdict_tags_mapping, jmdict_dict = load_jmdict_json_zip(Path("original_data/jmdict-eng-3.6.1.zip"))
-	logging.info("Extracted jmdict from zipped json.")
+	logging.debug("Extracted jmdict from zipped json.")
 
 	# Extract JLPT-by-level from .csv(s)
 	df = extract_jlpt_csvs_from_folder(Path("original_data"))
-	logging.info("Extracted JLPT words from csvs.")
+	logging.debug("Extracted JLPT words from csvs.")
  
 	# Extract any existing wanikani audio files
 	# wani_audio_path = Path("original_data", "wanikani")

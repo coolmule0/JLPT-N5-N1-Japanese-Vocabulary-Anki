@@ -56,7 +56,7 @@ class KaAudio():
 	def add_audio(self, jmdict: pd.DataFrame, main_df: pd.DataFrame) -> pd.DataFrame:
 		logging.info("Adding KanjiAlive audio...")
 		audio_df = self._build_audio_lookup(jmdict)
-		logging.debug(f"Matched {len(audio_df)} entries to jmdict")
+		logging.debug(f"Matched {len(audio_df)} audio entries to jmdict")
 		result = main_df.merge(audio_df, on="jmdict_seq", how="left")
 		logging.debug(f"Rows with audio: {result['audio_path'].notna().sum()}/{len(result)}")
 		return result
